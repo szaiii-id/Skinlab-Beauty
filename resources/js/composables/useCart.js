@@ -11,7 +11,7 @@ export function useCart() {
         form.variant_id = variantId;
         form.quantity = quantity;
 
-        form.post(route('cart.store'), {
+        form.post('/cart', {
             preserveScroll: true,
             onSuccess: () => {
                 alert('Successfully added to cart!');

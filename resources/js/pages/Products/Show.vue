@@ -11,6 +11,7 @@ const props = defineProps({
 const selectedVariantId = ref(props.product.variants[0]?.variant_id || '');
 const quantity = ref(1);
 
+// Panggil Composable
 const { addToCart, isAddingToCart } = useCart();
 const { formatCurrency } = useFormatting();
 
@@ -25,6 +26,7 @@ const handleAddToCartClick = () => {
         alert('Please select a variant first.');
         return;
     }
+    // Panggil fungsi dari Composable
     addToCart(selectedVariantId.value, quantity.value);
 };
 
