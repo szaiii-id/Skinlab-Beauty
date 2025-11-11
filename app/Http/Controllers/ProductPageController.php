@@ -7,6 +7,7 @@ use App\Services\ProductService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Http\RedirectResponse;
 
 class ProductPageController extends Controller
 {
@@ -21,20 +22,28 @@ class ProductPageController extends Controller
     {
         $products = $this->productService->getAllProducts();
 
-        return Inertia::render('Products/Index', [
+        return Inertia::render('Catalog/Index', [
             'products' => ProductResource::collection($products)
         ]);
     }
 
-    public function show(int $id): Response
+    public function show(string $slug, int $id): Response|RedirectResponse
     {
-        $product = $this->productService->getProductById($id);
+        $productId = (int)$id;
+        $product = $this->productService->getProductById($productId);
 
         if (!$product) {
-            abort(404); // Gunakan abort(404) untuk halaman tidak ditemukan
+            abort(404);
         }
 
-        return Inertia::render('Products/Show', [
+        if ($product->slug !== $slug) {
+            return redirect()->route('products.show', [
+                'slug' => $product->slug,
+                'id' => $product->id
+            ]); 
+        }
+
+        return Inertia::render('Catalog/Show', [
             'product' => new ProductResource($product)
         ]);
     }

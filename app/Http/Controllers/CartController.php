@@ -4,9 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\ProductVariant;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class CartController extends Controller
 {
+
+    public function index(Request $request): Response
+    {
+        $cart = $request->session()->get('cart', []);
+        return Inertia::render('Cart/Index', ['cart' => $cart]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([

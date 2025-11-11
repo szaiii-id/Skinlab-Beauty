@@ -2,6 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\BrandService;
+use App\Services\CategoryService;
+use App\Services\PromoBannerService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -42,6 +45,10 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
+            'categories' => fn () => resolve(CategoryService::class)->getAllCategories(),
+            'brands' => fn () => resolve(BrandService::class)->getAllBrands(),
+            'cartCount' => fn () => count($request->session()->get('cart', [])),
+            'promoBanners' => fn () => resolve(PromoBannerService::class)->getActiveBanners(),
             'auth' => [
                 'user' => $request->user(),
             ],

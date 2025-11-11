@@ -1,5 +1,9 @@
 import '../css/app.css';
 
+import 'swiper/css';
+import 'swiper/css/pagination'; 
+import 'swiper/css/navigation'; 
+
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';

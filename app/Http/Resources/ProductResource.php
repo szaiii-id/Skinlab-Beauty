@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Http\Resources\CategoryResource; // <-- Pastikan ini di-import
 use App\Http\Resources\ProductVariantResource; // <-- Pastikan ini di-import
+use App\Models\Brand;
 
 class ProductResource extends JsonResource
 {
@@ -13,13 +14,11 @@ class ProductResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'slug' => $this->slug,
             'name' => $this->name,
             'description' => $this->description,
             'category' => new CategoryResource($this->whenLoaded('category')),
-            
-            // INI YANG DIPERBAIKI:
-            // SALAH: 'variant' => ProductVariantResource::collection($this->whenLoaded('variants')),
-            // BENAR: (plural 'variants')
+            'brand' => new BrandResource($this->whenLoaded('brand')),
             'variants' => ProductVariantResource::collection($this->whenLoaded('variants')),
         ];
     }

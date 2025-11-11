@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\PromoBanner;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\ServiceProvider;
 
@@ -21,5 +22,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         JsonResource::withoutWrapping();
+        PromoBanner::observe(\App\Observers\PromoBannerObserver::class);
     }
 }

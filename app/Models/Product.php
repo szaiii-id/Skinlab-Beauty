@@ -13,8 +13,10 @@ class Product extends Model
     
     protected $fillable = [
         'category_id',
+        'brand_id',
         'name',
-        'description'
+        'description',
+        'slug',
     ];
 
     /**
@@ -33,5 +35,15 @@ class Product extends Model
     public function variants(): HasMany
     {
         return $this->hasMany(ProductVariant::class);
+    }
+
+    /**
+     * Get the brand that owns the Product
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
     }
 }

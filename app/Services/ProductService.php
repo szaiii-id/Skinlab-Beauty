@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Repositories\ProductRepository;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 
 class ProductService
@@ -24,9 +25,6 @@ class ProductService
             self::CACHE_KEY_ALL_PRODUCTS,
             self::CACHE_TTL,
             function () {
-                // INI YANG DIPERBAIKI:
-                // SALAH: return $this->productRepository->getAllProductWithVariants();
-                // BENAR: (plural 'Products')
                 return $this->productRepository->getAllProductsWithVariants(); 
             }
         );
@@ -43,5 +41,15 @@ class ProductService
                 return $this->productRepository->findByIdWithVariants($id);
             }
         );
+    }
+
+    public function getNewReleases(): Collection
+    {
+        return $this->productRepository->getNewReleases();
+    }
+
+    public function getBestSellers(): Collection
+    {
+        return $this->productRepository->getBestSellers();
     }
 }
