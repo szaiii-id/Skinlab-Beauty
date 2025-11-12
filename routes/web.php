@@ -13,10 +13,31 @@ Route::get('/products/{slug}/{id}', [ProductPageController::class, 'show'])->nam
 
 Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
 Route::post('/cart', [CartController::class, 'store'])->name('cart.store');
+Route::patch('/cart/{variantId}', [CartController::class, 'update'])->name('cart.update');
+Route::delete('/cart/{variantId}', [CartController::class, 'destroy'])->name('cart.destroy');
+
+Route::get('/categories/{slug}', [ProductPageController::class, 'showByCategory'])->name('categories.show');
+Route::get('/brands/{slug}', [ProductPageController::class, 'showByBrand'])->name('brands.show');
 
 Route::get('/about', function () {
     return Inertia::render('About');
 })->name('about');
+
+Route::get('/contact', function () {
+    return Inertia::render('Contact'); 
+})->name('contact');
+
+Route::get('/faq', function () {
+    return Inertia::render('FAQ'); 
+})->name('faq');
+
+Route::get('/terms-of-service', function () {
+    return Inertia::render('TermsOfService'); 
+})->name('terms');
+
+Route::get('/privacy-policy', function () {
+    return Inertia::render('PrivacyPolicy'); 
+})->name('privacy');
 
 
 
