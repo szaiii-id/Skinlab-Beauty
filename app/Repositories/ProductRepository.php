@@ -1,24 +1,24 @@
 <?php
 
-
 namespace App\Repositories;
 
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ProductRepository
 {
-    public function getAllProductsWithVariants(): Collection
+    public function getAllProductsWithVariants(): LengthAwarePaginator
     {
-        return Product::with('variants', 'category', 'brand')->orderBy('name', 'asc')->get();
-
+        return Product::with('variants', 'category', 'brand')
+            ->orderBy('id', 'asc') // ✅ Ganti ke ID untuk consistency
+            ->paginate(12);
     }
 
     public function findByIdWithVariants(int $id): ?Product
     {
         return Product::with('variants', 'category', 'brand')
-        ->select('id', 'slug', 'category_id', 'brand_id', 'name', 'description')
-        ->find($id);
+            ->find($id);
     }
 
     public function getNewReleases(int $limit = 4): Collection
@@ -35,5 +35,21 @@ class ProductRepository
             ->oldest()
             ->take($limit)
             ->get();
+    }
+
+    public function getProductsByCategoryById(int $categoryId): LengthAwarePaginator
+    {
+        return Product::with('variants', 'category', 'brand')
+            ->where('category_id', $categoryId)
+            ->orderBy('id', 'asc') // ✅ Tambah orderBy
+            ->paginate(12);
+    }
+        
+    public function getProductsByBrandById(int $brandId): LengthAwarePaginator
+    {
+        return Product::with('variants', 'category', 'brand')
+            ->where('brand_id', $brandId)
+            ->orderBy('id', 'asc') // ✅ Tambah orderBy
+            ->paginate(12);
     }
 }

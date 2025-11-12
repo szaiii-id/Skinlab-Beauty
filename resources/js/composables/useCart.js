@@ -7,18 +7,14 @@ export function useCart() {
         quantity: 1,
     });
 
-    const addToCart = (variantId, quantity) => {
+    const addToCart = (variantId, quantity, options = {}) => {
         form.variant_id = variantId;
         form.quantity = quantity;
 
+        // Gunakan URL langsung untuk menghindari error 'route()'
         form.post('/cart', {
             preserveScroll: true,
-            onSuccess: () => {
-                alert('Successfully added to cart!');
-            },
-            onError: (errors) => {
-                alert(errors.variant_id || errors.quantity || 'An error occurred.');
-            }
+            ...options, // Kirim callback dari Show.vue
         });
     };
 
