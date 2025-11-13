@@ -13,7 +13,7 @@ import {
     Home
 } from 'lucide-vue-next';
 
-// Komponen Dropdown
+// Komponen Dropdown (untuk category dan brand saja)
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -21,7 +21,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import UserMenuContent from '@/components/UserMenuContent.vue'; 
 
 // Ambil props global
 const page = usePage();
@@ -43,7 +42,7 @@ const navigateToBrand = (event: Event) => {
 };
 
 // ==========================================================
-// 1. HELPER UNTUK KONDISI AKTIF (COMPUTED PROPERTIES)
+// HELPER UNTUK KONDISI AKTIF (COMPUTED PROPERTIES)
 // ==========================================================
 
 // Home aktif hanya jika URL adalah root (tepat '/')
@@ -61,6 +60,19 @@ const isAboutActive = computed(() => page.url === '/about');
 const isCategoryDropdownActive = computed(() => page.url.startsWith('/categories'));
 const isBrandDropdownActive = computed(() => page.url.startsWith('/brands'));
 
+// ==========================================================
+// LOGIC UNTUK ICON AKUN
+// ==========================================================
+
+// Tentukan href berdasarkan status login
+const accountHref = computed(() => {
+    return user.value ? '/dashboard' : '/login';
+});
+
+// Tentukan title berdasarkan status login
+const accountTitle = computed(() => {
+    return user.value ? 'My Dashboard' : 'Login / Register';
+});
 
 </script>
 
@@ -93,7 +105,7 @@ const isBrandDropdownActive = computed(() => page.url.startsWith('/brands'));
                         <Link 
                             href="/catalog" 
                             :class="{ 
-                                'border-rose-500 text-gray-900 border-b-2': isCatalogActive, // <-- MENGGUNAKAN isCatalogActive
+                                'border-rose-500 text-gray-900 border-b-2': isCatalogActive,
                                 'border-transparent text-gray-500 hover:text-gray-900 border-b-2': !isCatalogActive
                             }"
                             class="inline-flex items-center px-1 pt-1 text-sm font-medium"
@@ -195,19 +207,17 @@ const isBrandDropdownActive = computed(() => page.url.startsWith('/brands'));
                         </span>
                     </Link>
 
-                    <DropdownMenu>
-                        <DropdownMenuTrigger as-child>
-                            <button class="p-2 rounded-full text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-colors">
-                                <span v-if="user" class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-600 font-semibold text-xs">
-                                    {{ user.name.charAt(0) }}
-                                </span>
-                                <User v-else class="h-6 w-6 text-gray-500" />
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent class="w-56" align="end">
-                            <UserMenuContent />
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <!-- ICON AKUN - TANPA DROPDOWN -->
+                    <Link 
+                        :href="accountHref"
+                        class="p-2 rounded-full text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        :title="accountTitle"
+                    >
+                        <span v-if="user" class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-600 font-semibold text-xs">
+                            {{ user.name.charAt(0) }}
+                        </span>
+                        <User v-else class="h-6 w-6 text-gray-500" />
+                    </Link>
 
                 </div>
             </div>

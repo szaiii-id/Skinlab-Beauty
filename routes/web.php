@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProductPageController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\WishlistController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -18,6 +19,9 @@ Route::delete('/cart/{variantId}', [CartController::class, 'destroy'])->name('ca
 
 Route::get('/categories/{slug}', [ProductPageController::class, 'showByCategory'])->name('categories.show');
 Route::get('/brands/{slug}', [ProductPageController::class, 'showByBrand'])->name('brands.show');
+
+Route::get('/search', [ProductPageController::class, 'search'])->name('products.search');
+
 
 Route::get('/about', function () {
     return Inertia::render('About');
@@ -50,6 +54,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/my-account', function () {
         return Inertia::render('Account/Index'); 
     })->name('account.index');
+
+    Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
+    Route::post('/wishlist', [WishlistController::class, 'store'])->name('wishlist.store');
+    Route::delete('/wishlist', [WishlistController::class, 'delete'])->name('wishlist.delete');
 
     require __DIR__.'/settings.php';
 });
