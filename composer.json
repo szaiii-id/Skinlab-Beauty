@@ -16,7 +16,10 @@
         "laravel/octane": "^2.13",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
-        "laravel/wayfinder": "^0.1.9"
+        "laravel/wayfinder": "^0.1.9",
+        "netflie/laravel-notification-whatsapp": "^1.4",
+        "predis/predis": "^3.2",
+        "propaganistas/laravel-phone": "^6.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
