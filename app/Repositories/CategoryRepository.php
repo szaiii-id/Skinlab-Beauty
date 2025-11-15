@@ -4,7 +4,6 @@ namespace App\Repositories;
 
 use App\Models\Category;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
 
 class CategoryRepository
 {
@@ -18,4 +17,25 @@ class CategoryRepository
         return Category::orderBy('name', 'asc')->get();
     }
 
+    /**
+     * Find category by slug
+     *
+     * @param string $slug
+     * @return Category|null
+     */
+    public function findBySlug(string $slug): ?Category
+    {
+        return Category::where('slug', $slug)->first();
+    }
+
+    /**
+     * Find category by ID
+     *
+     * @param int $id
+     * @return Category|null
+     */
+    public function findById(int $id): ?Category
+    {
+        return Category::find($id);
+    }
 }

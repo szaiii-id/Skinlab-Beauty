@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Repositories\ProductRepository;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator; // <-- WAJIB IMPORT INI
-use Illuminate\Database\Eloquent\Collection; // WAJIB IMPORT INI
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 
 class ProductService
@@ -21,7 +21,6 @@ class ProductService
 
     public function getAllProducts(): LengthAwarePaginator 
     {
-
         return $this->productRepository->getAllProductsWithVariants(); 
     }
 
@@ -38,7 +37,6 @@ class ProductService
         );
     }
 
-    // Metode ini mengembalikan Collection (karena Repository menggunakan ->get())
     public function getNewReleases(): Collection
     {
         return $this->productRepository->getNewReleases();
@@ -49,13 +47,23 @@ class ProductService
         return $this->productRepository->getBestSellers();
     }
 
-    public function getProductByCategoryById(int $categoryId): LengthAwarePaginator
+    public function getProductsByCategoryId(int $categoryId): LengthAwarePaginator
     {
-        return $this->productRepository->getProductsByCategoryById($categoryId);
+        return $this->productRepository->getProductsByCategoryId($categoryId);
     }
 
-    public function getProductByBrandById(int $brandId): LengthAwarePaginator
+    public function getProductsByBrandId(int $brandId): LengthAwarePaginator
     {
-        return $this->productRepository->getProductsByBrandById($brandId);
+        return $this->productRepository->getProductsByBrandId($brandId);
+    }
+
+    public function searchProducts(string $query): LengthAwarePaginator
+    {
+        return $this->productRepository->searchProducts($query);
+    }
+
+    public function getInstantSearchResult(string $query, int $limit = 8): Collection
+    {
+        return $this->productRepository->getInstantSearchResult($query, $limit);
     }
 }

@@ -11,8 +11,9 @@ class ProductRepository
     public function getAllProductsWithVariants(): LengthAwarePaginator
     {
         return Product::with('variants', 'category', 'brand')
-            ->orderBy('id', 'asc') // ✅ Ganti ke ID untuk consistency
-            ->paginate(12);
+            ->orderBy('name', 'asc') 
+            ->paginate(12)
+            ->appends(request()->query()); 
     }
 
     public function findByIdWithVariants(int $id): ?Product
@@ -37,19 +38,53 @@ class ProductRepository
             ->get();
     }
 
-    public function getProductsByCategoryById(int $categoryId): LengthAwarePaginator
+    public function getProductsByCategoryId(int $categoryId): LengthAwarePaginator
     {
         return Product::with('variants', 'category', 'brand')
             ->where('category_id', $categoryId)
-            ->orderBy('id', 'asc') // ✅ Tambah orderBy
-            ->paginate(12);
+            ->orderBy('name', 'asc') 
+            ->paginate(12)
+            ->appends(request()->query()); 
     }
         
-    public function getProductsByBrandById(int $brandId): LengthAwarePaginator
+    public function getProductsByBrandId(int $brandId): LengthAwarePaginator
     {
         return Product::with('variants', 'category', 'brand')
             ->where('brand_id', $brandId)
-            ->orderBy('id', 'asc') // ✅ Tambah orderBy
-            ->paginate(12);
+            ->orderBy('name', 'asc') 
+            ->paginate(12)
+            ->appends(request()->query()); 
+    }
+
+    public function searchProducts(string $query): LengthAwarePaginator
+    {
+        return Product::with('variants', 'category', 'brand')
+            ->where('name', 'LIKE', '%' . $query . '%')
+            ->orWhere('description', 'LIKE', '%' . $query . '%')
+            ->orWhereHas('brand', function ($q) use ($query) {
+                $q->where('name', 'LIKE', '%' . $query . '%');
+            })
+            ->orWhereHas('category', function ($q) use ($query) {
+                $q->where('name', 'LIKE', '%' . $query . '%');
+            })
+            ->orderBy('name', 'asc')
+            ->paginate(12)
+            ->appends(request()->query());
+    }
+
+    public function getInstantSearchResult(string $query, int $limit = 8): Collection
+    {
+        return Product::with('variants', 'category', 'brand')
+            ->where('name', 'LIKE', '%' . $query . '%')
+            ->orWhere('description', 'LIKE', '%' . $query . '%')
+            ->orWhereHas('brand', function ($q) use ($query) {
+                $q->where('name', 'LIKE', '%' . $query . '%');
+            })
+            ->orWhereHas('category', function ($q) use ($query) {
+                $q->where('name', 'LIKE', '%' . $query . '%');
+            })
+            ->orderBy('name', 'asc')
+            ->take($limit)
+            ->get();
     }
 }

@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Log;
 
 class ProductPageController extends Controller
 {
@@ -26,10 +27,11 @@ class ProductPageController extends Controller
 
         return Inertia::render('Catalog/Index', [
             'products' => ProductResource::collection($products),
+            'filterTitle' => null 
         ]);
     }
 
-    public function show(string $slug, int $id): Response|RedirectResponse
+    public function show(string $slug, string $id): Response|RedirectResponse
     {
         $productId = (int)$id;
         $product = $this->productService->getProductById($productId);
@@ -53,12 +55,10 @@ class ProductPageController extends Controller
     public function showByCategory(string $slug, CategoryService $categoryService): Response
     {
         $category = $categoryService->findBySlug($slug);
-
         if (!$category) {
             abort(404);
         }
-
-        $products = $this->productService->getProductByCategoryById($category->id);
+        $products = $this->productService->getProductsByCategoryId($category->id);
 
         return Inertia::render('Catalog/Index', [
             'products' => ProductResource::collection($products),
@@ -69,16 +69,42 @@ class ProductPageController extends Controller
     public function showByBrand(string $slug, BrandService $brandService): Response
     {
         $brand = $brandService->findBySlug($slug);
-
         if (!$brand) {
             abort(404);
         }   
-
-        $products = $this->productService->getProductByBrandById($brand->id);
+        $products = $this->productService->getProductsByBrandId($brand->id);
 
         return Inertia::render('Catalog/Index', [
             'products' => ProductResource::collection($products),
             'filterTitle' => $brand->name
         ]);
+    }
+
+    public function search(Request $request): Response
+    {
+        try {
+            $query = $request->input('q');
+            
+            return Inertia::render('Catalog/Index', [
+            'products' => ProductResource::collection(
+                $this->productService->getAllProducts()
+            ),
+            'filterTitle' => null
+        ]);
+            
+            $products = $this->productService->searchProducts($query);
+
+            return Inertia::render('Catalog/Index', [
+                'products' => ProductResource::collection($products),
+                'filterTitle' => 'Hasil pencarian untuk "' . $query . '"'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Search error: ' . $e->getMessage());
+            
+            return Inertia::render('Catalog/Index', [
+                'products' => ProductResource::collection([]),
+                'filterTitle' => 'Search results for "' . $request->input('q') . '"'
+            ]);
+        }
     }
 }

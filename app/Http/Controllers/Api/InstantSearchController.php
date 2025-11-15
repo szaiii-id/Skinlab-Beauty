@@ -26,7 +26,7 @@ class InstantSearchController extends Controller
             return response()->json([]);
         }
 
-        $result = $this->productRepository->getInstanceSearchResult($query, 8);
+        $result = $this->productRepository->getInstantSearchResult($query, 8);
         return response()->json($result);
     }
 
