@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Auth\CustomRegisterController;
+use App\Http\Controllers\Auth\VerificationController;
 use App\Http\Controllers\ProductPageController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\HomeController;
@@ -44,6 +46,14 @@ Route::get('/privacy-policy', function () {
 })->name('privacy');
 
 
+Route::get('/email/verify', [VerificationController::class, 'notice'])
+    ->name('verification.notice');
+    
+Route::post('/email/verify', [VerificationController::class, 'verify'])
+    ->name('verification.verify');
+    
+Route::post('/email/verification-notification', [VerificationController::class, 'send'])
+    ->name('verification.send');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     
