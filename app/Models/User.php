@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Cache;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
 class User extends Authenticatable 
@@ -86,5 +87,47 @@ class User extends Authenticatable
     public function verificationCodes(): HasMany
     {
         return $this->hasMany(VerificationCode::class);
+    }
+
+    /**
+     * Get all of the whislistItems for the User
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function whislistItems(): HasMany
+    {
+        return $this->hasMany(UserWhislist::class)
+                    ->select(['id', 'user_id', 'product_variant_id', 'created_at']);
+    }
+
+    /**
+     * Accessor for wishlist count (cached)
+     */
+    public function getWishlistCountAttribute(): int
+    {
+        return Cache::remember(
+            "user_{$this->id}_wishlist_count",
+            300, 
+            fn() => $this->wishlistItems()->count()
+        );
+    }
+
+        /**
+     * Method for clear cache wishlist
+     */
+    public function clearWishlistCache(): void
+    {
+        Cache::forget("user_{$this->id}_wishlist_count");
+        Cache::forget("wishlist_count_{$this->id}");
+        Cache::forget("wishlist_status_{$this->id}");
+        Cache::forget("user_wishlist_{$this->id}");
+    }
+
+    /**
+     * Scope for eager loading wishlist count
+     */
+    public function scopeWithWishlistCount($query)
+    {
+        return $query->withCount(['wishlistItems as wishlist_count']);
     }
 }

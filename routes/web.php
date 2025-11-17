@@ -4,10 +4,14 @@ use App\Http\Controllers\Auth\CustomRegisterController;
 use App\Http\Controllers\Auth\VerificationController;
 use App\Http\Controllers\ProductPageController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\WishlistController;
+use App\Http\Controllers\WhislistController;
+use Illuminate\Container\Attributes\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
+
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
@@ -56,6 +60,10 @@ Route::post('/email/verification-notification', [VerificationController::class, 
     ->name('verification.send');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+
+    Route::get('/checkout', [CheckoutController::class, 'create'])->name('checkout.create');
+    Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+    Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
     
     Route::get('dashboard', function () {
         return Inertia::render('Dashboard');
@@ -65,9 +73,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('Account/Index'); 
     })->name('account.index');
 
-    Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
-    Route::post('/wishlist', [WishlistController::class, 'store'])->name('wishlist.store');
-    Route::delete('/wishlist', [WishlistController::class, 'delete'])->name('wishlist.delete');
 
     require __DIR__.'/settings.php';
+});
+
+Route::middleware(['web'])->group(function () {
+    Route::get('/wishlist', [WhislistController::class, 'index'])->name('wishlist.index');
+    Route::post('/wishlist', [WhislistController::class, 'store'])->name('wishlist.store');
+    Route::delete('/wishlist/{variant}', [WhislistController::class, 'destroy'])->name('wishlist.destroy');
+    Route::post('/wishlist/{variant}/move-to-cart', [WhislistController::class, 'moveToCart'])->name('wishlist.move-to-cart');
+    Route::get('/wishlist/status', [WhislistController::class, 'status'])->name('wishlist.status');
 });

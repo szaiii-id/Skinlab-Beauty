@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Services\CategoryService;
 use App\Services\BrandService;
 use App\Services\PromoBannerService;
+use App\Services\WhislistService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -38,7 +39,6 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
-        
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -48,6 +48,7 @@ class HandleInertiaRequests extends Middleware
             'categories' => fn () => resolve(CategoryService::class)->getAllCategories(),
             'brands' => fn () => resolve(BrandService::class)->getAllBrands(),
             'cartCount' => fn () => count($request->session()->get('cart', [])),
+            'wishlistCount' => fn () => count($request->session()->get('wishlist', [])), // HANYA SATU INI
             'promoBanners' => fn () => resolve(PromoBannerService::class)->getActiveBanners(),
             
             // 'Flash message' untuk Pop-up Modal Sukses
@@ -56,15 +57,9 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('toast_error'),
             ],
 
-            // <-- 2. TAMBAHKAN DATA WISHLIST DI SINI -->
-            // Ini akan mengirim array berisi ID varian yang ada di wishlist pengguna
-            'wishlistItems' => fn () => Auth::check()
-                ? Auth::user()->wishlist()->pluck('product_variant_id')->toArray()
-                : [], // Kirim array kosong jika pengguna adalah tamu (guest)
-            
-            // --- DATA BAWAAN STARTER KIT ---
             'auth' => [
                 'user' => $request->user(),
+                // HAPUS wishlistCount dari sini, sudah ada di atas
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
