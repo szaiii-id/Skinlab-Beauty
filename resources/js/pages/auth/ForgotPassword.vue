@@ -24,7 +24,7 @@ defineProps<{
 
         <div
             v-if="status"
-            class="mb-4 text-center text-sm font-medium text-green-600"
+            class="mb-6 rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200"
         >
             {{ status }}
         </div>
@@ -32,7 +32,7 @@ defineProps<{
         <div class="space-y-6">
             <Form v-bind="email.form()" v-slot="{ errors, processing }">
                 <div class="grid gap-2">
-                    <Label for="email">Email address</Label>
+                    <Label for="email" class="text-gray-700 font-medium">Email address</Label>
                     <Input
                         id="email"
                         type="email"
@@ -40,13 +40,14 @@ defineProps<{
                         autocomplete="off"
                         autofocus
                         placeholder="email@example.com"
+                        class="border-gray-300 focus:border-rose-500 focus:ring-rose-500"
                     />
                     <InputError :message="errors.email" />
                 </div>
 
                 <div class="my-6 flex items-center justify-start">
                     <Button
-                        class="w-full"
+                        class="w-full bg-rose-600 hover:bg-rose-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
                         :disabled="processing"
                         data-test="email-password-reset-link-button"
                     >
@@ -56,9 +57,9 @@ defineProps<{
                 </div>
             </Form>
 
-            <div class="space-x-1 text-center text-sm text-muted-foreground">
+            <div class="space-x-1 text-center text-sm text-gray-600">
                 <span>Or, return to</span>
-                <TextLink :href="login()">log in</TextLink>
+                <TextLink :href="login()" class="text-rose-600 hover:text-rose-700 font-medium">log in</TextLink>
             </div>
         </div>
     </AuthLayout>

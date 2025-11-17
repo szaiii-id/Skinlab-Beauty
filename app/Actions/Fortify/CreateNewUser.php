@@ -32,10 +32,8 @@ class CreateNewUser implements CreatesNewUsers
 
         Log::info('User registered', ['user_id' => $user->id, 'email' => $user->email]);
 
-        // ✅ SET SESSION UNTUK VERIFICATION
         session(['verification_email' => $user->email]);
 
-        // ✅ KIRIM VERIFICATION CODE
         $this->sendVerificationCode($user);
 
         Log::info('Session set and code sent', ['session_email' => session('verification_email')]);
@@ -54,10 +52,12 @@ class CreateNewUser implements CreatesNewUsers
         ]);
 
         try {
-            Mail::raw("Kode Verifikasi Anda: {$code}\n\nKode ini berlaku selama 10 menit.", 
-            function ($message) use ($user) {
+            Mail::send('emails.verification', [
+            'code' => $code,
+            'expires' => 10, // 10 minutes
+            ], function ($message) use ($user) {
                 $message->to($user->email)
-                       ->subject('Kode Verifikasi - ' . config('app.name'));
+                    ->subject('✨ Verify Your Email - ' . config('app.name'));
             });
             
             Log::info('Verification code sent', ['email' => $user->email, 'code' => $code]);

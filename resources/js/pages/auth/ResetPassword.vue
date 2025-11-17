@@ -32,27 +32,27 @@ const inputEmail = ref(props.email);
         >
             <div class="grid gap-6">
                 <div class="grid gap-2">
-                    <Label for="email">Email</Label>
+                    <Label for="email" class="text-gray-700 font-medium">Email</Label>
                     <Input
                         id="email"
                         type="email"
                         name="email"
                         autocomplete="email"
                         v-model="inputEmail"
-                        class="mt-1 block w-full"
+                        class="mt-1 block w-full border-gray-300 bg-gray-50 text-gray-500"
                         readonly
                     />
                     <InputError :message="errors.email" class="mt-2" />
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="password">Password</Label>
+                    <Label for="password" class="text-gray-700 font-medium">Password</Label>
                     <Input
                         id="password"
                         type="password"
                         name="password"
                         autocomplete="new-password"
-                        class="mt-1 block w-full"
+                        class="mt-1 block w-full border-gray-300 focus:border-rose-500 focus:ring-rose-500"
                         autofocus
                         placeholder="Password"
                     />
@@ -60,7 +60,7 @@ const inputEmail = ref(props.email);
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="password_confirmation">
+                    <Label for="password_confirmation" class="text-gray-700 font-medium">
                         Confirm Password
                     </Label>
                     <Input
@@ -68,7 +68,7 @@ const inputEmail = ref(props.email);
                         type="password"
                         name="password_confirmation"
                         autocomplete="new-password"
-                        class="mt-1 block w-full"
+                        class="mt-1 block w-full border-gray-300 focus:border-rose-500 focus:ring-rose-500"
                         placeholder="Confirm password"
                     />
                     <InputError :message="errors.password_confirmation" />
@@ -76,7 +76,7 @@ const inputEmail = ref(props.email);
 
                 <Button
                     type="submit"
-                    class="mt-4 w-full"
+                    class="mt-4 w-full bg-rose-600 hover:bg-rose-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
                     :disabled="processing"
                     data-test="reset-password-button"
                 >

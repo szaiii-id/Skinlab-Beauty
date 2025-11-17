@@ -72,7 +72,7 @@ onMounted(() => {
 
         <div
             v-if="status"
-            class="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-600"
+            class="mb-6 rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200"
         >
             {{ status }}
         </div>
@@ -80,7 +80,7 @@ onMounted(() => {
         <div class="space-y-6">
             <!-- Code Input -->
             <div class="text-center">
-                <div class="flex justify-center gap-2">
+                <div class="flex justify-center gap-3">
                     <input
                         v-for="(_, index) in 6"
                         :key="index"
@@ -92,7 +92,7 @@ onMounted(() => {
                         pattern="[0-9]*"
                         autocomplete="one-time-code"
                         :disabled="isSubmitting"
-                        class="h-12 w-12 rounded-lg border border-gray-300 text-center text-xl font-semibold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        class="h-14 w-14 rounded-lg border border-gray-300 text-center text-xl font-semibold focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200 text-gray-900 transition-all duration-200"
                         @input="(e) => focusNext(index, e)"
                         @keydown="(e) => focusPrev(index, e as KeyboardEvent)"
                     />
@@ -100,7 +100,7 @@ onMounted(() => {
 
                 <!-- Error Display -->
                 <div v-if="$page.props.errors?.code" class="mt-4">
-                    <div class="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                    <div class="rounded-lg bg-red-50 p-4 text-sm text-red-700 border border-red-200">
                         {{ $page.props.errors.code }}
                     </div>
                 </div>
@@ -110,7 +110,7 @@ onMounted(() => {
             <Button
                 @click="submitCode"
                 :disabled="!isCodeComplete || isSubmitting"
-                class="w-full"
+                class="w-full bg-rose-600 hover:bg-rose-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
                 size="lg"
             >
                 <Spinner v-if="isSubmitting" class="mr-2 h-4 w-4" />
@@ -122,7 +122,7 @@ onMounted(() => {
                 <button
                     @click="resendCode"
                     :disabled="isSubmitting"
-                    class="text-sm text-gray-600 hover:text-gray-900"
+                    class="text-sm text-rose-600 hover:text-rose-700 font-medium transition-colors duration-200"
                 >
                     Didn't receive code? Resend
                 </button>

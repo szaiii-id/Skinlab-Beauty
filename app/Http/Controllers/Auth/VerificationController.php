@@ -22,22 +22,19 @@ class VerificationController extends Controller
             'verified' => Auth::check() ? !is_null(Auth::user()->email_verified_at) : false
         ]);
 
-        // ✅ JIKA USER SUDAH VERIFIED, REDIRECT KE DASHBOARD
         if (Auth::check() && !is_null(Auth::user()->email_verified_at)) {
-            Log::info('User already verified, redirecting to dashboard');
-            return redirect()->intended('/dashboard');
+            Log::info('User already verified, redirecting to home');
+            return redirect()->intended('/');
         }
 
         $email = session('verification_email');
         
-        // ✅ JIKA TIDAK ADA SESSION, CEK USER YANG LOGIN TAPI BELUM VERIFIED
         if (!$email && Auth::check() && is_null(Auth::user()->email_verified_at)) {
             $email = Auth::user()->email;
             session(['verification_email' => $email]);
             
             Log::info('Session set from auth user (unverified)', ['email' => $email]);
             
-            // Auto send code jika belum ada
             if (!$this->hasActiveCode(Auth::user())) {
                 $this->sendVerificationCode(Auth::user());
             }
@@ -71,7 +68,6 @@ class VerificationController extends Controller
             return back()->withErrors(['code' => 'User not found. Please register again.']);
         }
 
-        // ✅ CEK JIKA SUDAH VERIFIED
         if (!is_null($user->email_verified_at)) {
             Log::info('User already verified, logging in', ['email' => $user->email]);
             Auth::login($user);
@@ -100,10 +96,8 @@ class VerificationController extends Controller
             return back()->withErrors(['code' => 'Terlalu banyak percobaan. Silakan minta kode baru']);
         }
 
-        // ✅ MARK EMAIL AS VERIFIED - PAKAI save() YANG PASTI WORK
         $user->email_verified_at = now();
-        $saved = $user->save(); // ✅ PAKAI save() BUKAN update()
-
+        $saved = $user->save(); 
         if (!$saved) {
             Log::error('Failed to update email_verified_at', ['email' => $user->email]);
             return back()->withErrors(['code' => 'Gagal memverifikasi email. Silakan coba lagi.']);
@@ -115,17 +109,12 @@ class VerificationController extends Controller
             'saved' => $saved
         ]);
 
-        // ✅ DELETE VERIFICATION CODE
         $verificationCode->delete();
         
-        // ✅ FORCE LOGIN USER
         Auth::login($user);
         
-        // ✅ CLEANUP EXPIRED CODES
         VerificationCode::cleanupExpired();
 
-        // ✅ CLEAR SESSION (optional)
-        // session()->forget('verification_email');
 
         Log::info('Email verified successfully and user logged in', [
             'email' => $user->email,
@@ -134,7 +123,6 @@ class VerificationController extends Controller
             'email_verified_at' => $user->email_verified_at
         ]);
 
-        // ✅ REDIRECT KE HOME (jika dashboard tidak ada)
         return redirect()->intended('/')
             ->with('status', 'Email berhasil diverifikasi! Selamat datang!');
     }
@@ -203,8 +191,10 @@ class VerificationController extends Controller
         ]);
 
         try {
-            Mail::raw("Kode Verifikasi Anda: {$code}\n\nKode ini berlaku selama 10 menit.", 
-            function ($message) use ($user) {
+             Mail::send('emails.verification', [
+                'name' => $user->name,
+                'code' => $code,
+            ], function ($message) use ($user) {
                 $message->to($user->email)
                        ->subject('Kode Verifikasi - ' . config('app.name'));
             });

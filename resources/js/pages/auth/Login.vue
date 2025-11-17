@@ -28,7 +28,7 @@ defineProps<{
 
         <div
             v-if="status"
-            class="mb-4 text-center text-sm font-medium text-green-600"
+            class="mb-6 rounded-lg bg-green-50 p-4 text-sm text-green-700 border border-green-200"
         >
             {{ status }}
         </div>
@@ -41,7 +41,7 @@ defineProps<{
         >
             <div class="grid gap-6">
                 <div class="grid gap-2">
-                    <Label for="email">Email address</Label>
+                    <Label for="email" class="text-gray-700 font-medium">Email address</Label>
                     <Input
                         id="email"
                         type="email"
@@ -51,17 +51,18 @@ defineProps<{
                         :tabindex="1"
                         autocomplete="email"
                         placeholder="email@example.com"
+                        class="border-gray-300 focus:border-rose-500 focus:ring-rose-500"
                     />
                     <InputError :message="errors.email" />
                 </div>
 
                 <div class="grid gap-2">
                     <div class="flex items-center justify-between">
-                        <Label for="password">Password</Label>
+                        <Label for="password" class="text-gray-700 font-medium">Password</Label>
                         <TextLink
                             v-if="canResetPassword"
                             :href="request()"
-                            class="text-sm"
+                            class="text-sm text-rose-600 hover:text-rose-700 font-medium"
                             :tabindex="5"
                         >
                             Forgot password?
@@ -75,20 +76,26 @@ defineProps<{
                         :tabindex="2"
                         autocomplete="current-password"
                         placeholder="Password"
+                        class="border-gray-300 focus:border-rose-500 focus:ring-rose-500"
                     />
                     <InputError :message="errors.password" />
                 </div>
 
                 <div class="flex items-center justify-between">
-                    <Label for="remember" class="flex items-center space-x-3">
-                        <Checkbox id="remember" name="remember" :tabindex="3" />
+                    <Label for="remember" class="flex items-center space-x-3 text-gray-700 cursor-pointer">
+                        <Checkbox 
+                            id="remember" 
+                            name="remember" 
+                            :tabindex="3"
+                            class="text-rose-600 border-gray-300 focus:ring-rose-500"
+                        />
                         <span>Remember me</span>
                     </Label>
                 </div>
 
                 <Button
                     type="submit"
-                    class="mt-4 w-full"
+                    class="mt-4 w-full bg-rose-600 hover:bg-rose-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
                     :tabindex="4"
                     :disabled="processing"
                     data-test="login-button"
@@ -99,11 +106,11 @@ defineProps<{
             </div>
 
             <div
-                class="text-center text-sm text-muted-foreground"
+                class="text-center text-sm text-gray-600"
                 v-if="canRegister"
             >
                 Don't have an account?
-                <TextLink :href="register()" :tabindex="5">Sign up</TextLink>
+                <TextLink :href="register()" :tabindex="5" class="text-rose-600 hover:text-rose-700 font-medium">Sign up</TextLink>
             </div>
         </Form>
     </AuthBase>

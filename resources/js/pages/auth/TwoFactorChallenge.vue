@@ -75,6 +75,7 @@ const codeValue = computed<string>(() => code.value.join(''));
                                 v-model="code"
                                 type="number"
                                 otp
+                                class="text-rose-600"
                             >
                                 <PinInputGroup>
                                     <PinInputSlot
@@ -83,20 +84,25 @@ const codeValue = computed<string>(() => code.value.join(''));
                                         :index="index"
                                         :disabled="processing"
                                         autofocus
+                                        class="border-gray-300 focus:border-rose-500 focus:ring-rose-500"
                                     />
                                 </PinInputGroup>
                             </PinInput>
                         </div>
                         <InputError :message="errors.code" />
                     </div>
-                    <Button type="submit" class="w-full" :disabled="processing"
-                        >Continue</Button
+                    <Button 
+                        type="submit" 
+                        class="w-full bg-rose-600 hover:bg-rose-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg" 
+                        :disabled="processing"
                     >
-                    <div class="text-center text-sm text-muted-foreground">
+                        Continue
+                    </Button>
+                    <div class="text-center text-sm text-gray-600">
                         <span>or you can </span>
                         <button
                             type="button"
-                            class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                            class="text-rose-600 hover:text-rose-700 font-medium underline"
                             @click="() => toggleRecoveryMode(clearErrors)"
                         >
                             {{ authConfigContent.toggleText }}
@@ -118,17 +124,22 @@ const codeValue = computed<string>(() => code.value.join(''));
                         placeholder="Enter recovery code"
                         :autofocus="showRecoveryInput"
                         required
+                        class="border-gray-300 focus:border-rose-500 focus:ring-rose-500"
                     />
                     <InputError :message="errors.recovery_code" />
-                    <Button type="submit" class="w-full" :disabled="processing"
-                        >Continue</Button
+                    <Button 
+                        type="submit" 
+                        class="w-full bg-rose-600 hover:bg-rose-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg" 
+                        :disabled="processing"
                     >
+                        Continue
+                    </Button>
 
-                    <div class="text-center text-sm text-muted-foreground">
+                    <div class="text-center text-sm text-gray-600">
                         <span>or you can </span>
                         <button
                             type="button"
-                            class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                            class="text-rose-600 hover:text-rose-700 font-medium underline"
                             @click="() => toggleRecoveryMode(clearErrors)"
                         >
                             {{ authConfigContent.toggleText }}
