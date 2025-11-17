@@ -6,11 +6,12 @@ use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Http\RedirectResponse;
 
 class CartController extends Controller
 {
     /**
-     * Menampilkan halaman keranjang belanja (Method ini sudah benar).
+     * Menampilkan halaman keranjang belanja
      */
     public function index(Request $request): Response
     {
@@ -22,26 +23,22 @@ class CartController extends Controller
     }
 
     /**
-     * PERUBAHAN 1:
-     * Menyimpan item (dengan data tambahan) ke keranjang (Session).
+     * Menyimpan item ke keranjang
      */
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $request->validate([
             'variant_id' => 'required|exists:product_variants,id',
             'quantity' => 'required|integer|min:1',
         ]);
 
-        // Ambil relasi 'product' agar kita bisa mengakses slug dan image
         $variant = ProductVariant::with('product')->find($request->variant_id);
-
         $cart = $request->session()->get('cart', []);
 
         if (isset($cart[$variant->id])) {
             $cart[$variant->id]['quantity'] += $request->quantity;
         } else {
             $cart[$variant->id] = [
-                // Kita tambahkan spasi agar lebih rapi
                 'name' => $variant->product->name . ' (' . $variant->volume . ')', 
                 'quantity' => (int)$request->quantity,
                 'price' => $variant->price,
@@ -58,10 +55,9 @@ class CartController extends Controller
     }
 
     /**
-     * PERUBAHAN 2:
-     * Method baru untuk update kuantitas (dari tombol +/-).
+     * Update kuantitas
      */
-    public function update(Request $request, $variantId)
+    public function update(Request $request, $variantId): RedirectResponse
     {
         $request->validate([
             'quantity' => 'required|integer|min:1',
@@ -74,20 +70,18 @@ class CartController extends Controller
             $request->session()->put('cart', $cart);
         }
 
-        // Kita kirim pesan sukses agar Pop-up/Modal tahu
         return redirect()->back()->with('toast_success', 'Cart updated successfully!');
     }
 
     /**
-     * PERUBAHAN 3:
-     * Method baru untuk menghapus item dari keranjang.
+     * Menghapus item dari keranjang
      */
-    public function destroy(Request $request, $variantId)
+    public function destroy(Request $request, $variantId): RedirectResponse
     {
         $cart = $request->session()->get('cart', []);
 
         if (isset($cart[$variantId])) {
-            unset($cart[$variantId]); // Hapus item
+            unset($cart[$variantId]);
             $request->session()->put('cart', $cart);
         }
 
