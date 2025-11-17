@@ -1,5 +1,6 @@
+<!-- resources/js/components/app/navbar.vue -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
 import AppLogo from './AppLogo.vue'; 
 import Searchbar from '@/components/Searchbar.vue';
@@ -29,17 +30,26 @@ const brands = computed(() => page.props.brands || []);
 const cartCount = computed(() => page.props.cartCount || 0);
 const user = computed(() => page.props.auth.user);
 
-// Fungsi navigasi dropdown (tetap ada)
-const navigateToCategory = (event: Event) => {
-    const target = event.target as HTMLSelectElement;
-    const slug = target.value;
-    if (slug) router.get(`/categories/${slug}`);
+// Wishlist count state - gunakan dari props dan real-time updates
+const wishlistCount = ref(page.props.wishlistCount || 0);
+
+watch(() => page.props.wishlistCount, (newCount) => {
+    wishlistCount.value = newCount || 0;
+});
+
+// Fungsi untuk handle wishlist updates
+const handleWishlistUpdate = (event) => {
+    wishlistCount.value = event.detail.count;
 };
-const navigateToBrand = (event: Event) => {
-    const target = event.target as HTMLSelectElement;
-    const slug = target.value;
-    if (slug) router.get(`/brands/${slug}`);
-};
+
+// Listen untuk wishlist updates
+onMounted(() => {
+    window.addEventListener('wishlist-updated', handleWishlistUpdate);
+});
+
+onUnmounted(() => {
+    window.removeEventListener('wishlist-updated', handleWishlistUpdate);
+});
 
 // ==========================================================
 // HELPER UNTUK KONDISI AKTIF (COMPUTED PROPERTIES)
@@ -55,6 +65,12 @@ const isCatalogActive = computed(() => {
 
 // About aktif hanya jika URL adalah /about
 const isAboutActive = computed(() => page.url === '/about');
+
+// Wishlist aktif jika URL adalah /wishlist
+const isWishlistActive = computed(() => page.url === '/wishlist');
+
+// Cart aktif jika URL adalah /cart
+const isCartActive = computed(() => page.url === '/cart');
 
 // Dropdown aktif jika URL diawali dengan path-nya
 const isCategoryDropdownActive = computed(() => page.url.startsWith('/categories'));
@@ -188,26 +204,45 @@ const accountTitle = computed(() => {
                 </div>
 
                 <div class="flex items-center space-x-3">
+                    <!-- Wishlist Icon dengan Counter -->
                     <Link 
-                        href="#" 
-                        class="p-2 rounded-full text-gray-500 hover:text-rose-600 hover:bg-rose-50"
+                        href="/wishlist" 
+                        :class="{ 
+                            'text-rose-600 bg-rose-50': isWishlistActive,
+                            'text-gray-500 hover:text-rose-600 hover:bg-rose-50': !isWishlistActive
+                        }"
+                        class="relative p-2 rounded-full transition-colors"
                         title="My Wishlist"
                     >
                         <Heart class="h-6 w-6" />
+                        <span 
+                            v-if="wishlistCount > 0"
+                            class="absolute -top-1 -right-1 bg-rose-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
+                        >
+                            {{ wishlistCount }}
+                        </span>
                     </Link>
 
+                    <!-- Cart Icon dengan Counter -->
                     <Link 
                         href="/cart" 
-                        class="relative p-2 rounded-full text-gray-500 hover:text-rose-600 hover:bg-rose-50"
+                        :class="{ 
+                            'text-rose-600 bg-rose-50': isCartActive,
+                            'text-gray-500 hover:text-rose-600 hover:bg-rose-50': !isCartActive
+                        }"
+                        class="relative p-2 rounded-full transition-colors"
                         title="View Cart"
                     >
                         <ShoppingCart class="h-6 w-6" />
-                        <span v-if="cartCount > 0" class="absolute -top-1 -right-1 bg-rose-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                        <span 
+                            v-if="cartCount > 0"
+                            class="absolute -top-1 -right-1 bg-rose-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
+                        >
                             {{ cartCount }}
                         </span>
                     </Link>
 
-                    <!-- ICON AKUN - TANPA DROPDOWN -->
+                    <!-- Account Icon -->
                     <Link 
                         :href="accountHref"
                         class="p-2 rounded-full text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
