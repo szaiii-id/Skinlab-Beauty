@@ -1,4 +1,5 @@
 <?php
+// [file name]: api.php
 
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\InstantSearchController;
@@ -8,19 +9,22 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/instant-search', [InstantSearchController::class, 'index']);
 
-
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
 Route::middleware(['auth'])->group(function () {
     
-    // Regions API - Simple
+    // Regions API - PERBAIKI ENDPOINT INI
     Route::get('/regions/provinces', [RegionController::class, 'getProvinces']);
-    Route::get('/regions/provinces/{provinceCode}/cities', [RegionController::class, 'getCities']);
-    Route::get('/regions/cities/{cityCode}/districts', [RegionController::class, 'getDistricts']);
     
-    // Addresses API - Simple  
+    // PERBAIKAN: Ubah endpoint cities sesuai dengan frontend
+    Route::get('/regions/cities/{provinceCode}', [RegionController::class, 'getCities']);
+    
+    // PERBAIKAN: Ubah endpoint districts sesuai dengan frontend  
+    Route::get('/regions/districts/{cityCode}', [RegionController::class, 'getDistricts']);
+    
+    // Addresses API - Tetap sama
     Route::get('/addresses', [AddressController::class, 'index']);
     Route::post('/addresses', [AddressController::class, 'store']);
     Route::put('/addresses/{id}', [AddressController::class, 'update']);
