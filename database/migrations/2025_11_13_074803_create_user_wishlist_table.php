@@ -16,7 +16,9 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('product_variant_id')->constrained('product_variants')->onDelete('cascade');
             $table->timestamps();
-            $table->unique('user_id', 'product_variant_id');
+            $table->unique(['user_id', 'product_variant_id']);
+            $table->index(['user_id']);
+            $table->index(['product_variant_id']);
         });
     }
 
@@ -27,4 +29,5 @@ return new class extends Migration
     {
         Schema::dropIfExists('user_wishlist');
     }
+    
 };

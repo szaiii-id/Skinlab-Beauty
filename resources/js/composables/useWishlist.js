@@ -1,45 +1,62 @@
-import { useForm, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { useForm } from '@inertiajs/vue3';
 
 export function useWishlist() {
     
-    const page = usePage();
-    
-    // Ambil data wishlist yang sudah di-load dari Middleware
-    const wishlistItems = computed(() => page.props.wishlistItems || []);
+    const form = useForm({
+        product_variant_id: null,
+    });
 
-    // Cek apakah ID varian ada di dalam array wishlist
-    const isInWishlist = (variantId) => {
-        return wishlistItems.value.includes(variantId);
+    // Helper untuk dispatch event
+    const dispatchWishlistUpdate = (count) => {
+        window.dispatchEvent(new CustomEvent('wishlist-updated', { 
+            detail: { count } 
+        }));
     };
 
-    // Form untuk menambah (POST)
-    const addForm = useForm({});
-    const addToWishlist = (variantId) => {
-        addForm.post(`/wishlist/${variantId}`, {
+    const addToWishlist = (variantId, options = {}) => {
+        form.product_variant_id = variantId;
+
+        form.post('/wishlist', {
             preserveScroll: true,
-            onSuccess: () => {
-                // (Pop-up modal/flash message akan dipicu oleh backend)
-            }
+            preserveState: true, // TAMBAHKAN INI
+            onSuccess: (page) => {
+                // Trigger update setelah success
+                const newCount = page.props.wishlistCount || 0;
+                dispatchWishlistUpdate(newCount);
+                
+                // Panggil callback jika ada
+                if (options.onSuccess) {
+                    options.onSuccess(page);
+                }
+            },
+            ...options,
         });
     };
 
-    // Form untuk menghapus (DELETE)
-    const removeForm = useForm({});
-    const removeFromWishlist = (variantId) => {
-        removeForm.delete(`/wishlist/${variantId}`, {
+    const removeFromWishlist = (variantId, options = {}) => {
+        form.product_variant_id = variantId;
+
+        form.delete(`/wishlist/${variantId}`, {
             preserveScroll: true,
-            onSuccess: () => {
-                // (Pop-up modal/flash message akan dipicu oleh backend)
-            }
+            preserveState: true, // TAMBAHKAN INI
+            onSuccess: (page) => {
+                // Trigger update setelah success
+                const newCount = page.props.wishlistCount || 0;
+                dispatchWishlistUpdate(newCount);
+                
+                // Panggil callback jika ada
+                if (options.onSuccess) {
+                    options.onSuccess(page);
+                }
+            },
+            ...options,
         });
     };
 
     return { 
-        isInWishlist,
         addToWishlist,
         removeFromWishlist,
-        isAdding: addForm.processing,
-        isRemoving: removeForm.processing
+        isAdding: form.processing,
+        isRemoving: form.processing
     };
 }
