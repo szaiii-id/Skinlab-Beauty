@@ -31,7 +31,7 @@ class ProductPageController extends Controller
         ]);
     }
 
-    public function show(string $slug, string $id): Response|RedirectResponse
+    public function show(string $slug, string $id, Request $request): Response|RedirectResponse
     {
         $productId = (int)$id;
         $product = $this->productService->getProductById($productId);
@@ -41,14 +41,17 @@ class ProductPageController extends Controller
         }
 
         if ($product->slug !== $slug) {
-            return redirect()->route('products.show', [
+            return to_route('products.show', [
                 'slug' => $product->slug,
                 'id' => $product->id
-            ]); 
+            ]);
         }
 
+        $wishlistItems = $request->session()->get('wishlist', []);
+
         return Inertia::render('Catalog/Show', [
-            'product' => new ProductResource($product)
+            'product' => new ProductResource($product),
+            'wishlistItems' => array_keys($wishlistItems)
         ]);
     }
 
@@ -85,18 +88,18 @@ class ProductPageController extends Controller
         try {
             $query = $request->input('q');
             
-            return Inertia::render('Catalog/Index', [
-            'products' => ProductResource::collection(
-                $this->productService->getAllProducts()
-            ),
-            'filterTitle' => null
-        ]);
+        //     return Inertia::render('Catalog/Index', [
+        //     'products' => ProductResource::collection(
+        //         $this->productService->getAllProducts()
+        //     ),
+        //     'filterTitle' => null
+        // ]);
             
             $products = $this->productService->searchProducts($query);
 
             return Inertia::render('Catalog/Index', [
                 'products' => ProductResource::collection($products),
-                'filterTitle' => 'Hasil pencarian untuk "' . $query . '"'
+                'filterTitle' => 'Search results for "' . $query . '"'
             ]);
         } catch (\Exception $e) {
             Log::error('Search error: ' . $e->getMessage());

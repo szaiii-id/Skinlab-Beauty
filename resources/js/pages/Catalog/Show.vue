@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Head, Link, usePage, router } from '@inertiajs/vue3';
 import { useCart } from '@/composables/useCart';
 import { useFormatting } from '@/composables/useFormatting';
@@ -12,7 +12,11 @@ defineOptions({
 });
 
 const props = defineProps({
-    product: Object
+    product: Object,
+    wishlistItems: {
+        type: Array,
+        default: () => []
+    }
 });
 
 // State lokal
@@ -20,10 +24,24 @@ const selectedVariantId = ref(props.product.variants[0]?.variant_id || '');
 const quantity = ref(1);
 const justAdded = ref(false);
 
+// Flash message states
+const flash = computed(() => usePage().props.flash?.success);
+const isFlashVisible = ref(false);
+
+// Watch flash messages
+watch(flash, (newValue) => {
+  if (newValue) {
+    isFlashVisible.value = true; 
+    setTimeout(() => {
+      isFlashVisible.value = false;
+    }, 2500); // Hilang setelah 2.5 detik
+  }
+});
+
 // Composables
 const { addToCart, isAddingToCart } = useCart();
 const { formatCurrency } = useFormatting();
-const { isInWishlist, addToWishlist, removeFromWishlist, isAdding, isRemoving } = useWishlist();
+const { addToWishlist, removeFromWishlist, isAdding, isRemoving } = useWishlist();
 
 const currentVariant = computed(() => {
     return props.product.variants.find(
@@ -31,9 +49,12 @@ const currentVariant = computed(() => {
     );
 });
 
+// Gunakan wishlistItems dari props
 const isWished = computed(() => {
     if (!currentVariant.value) return false;
-    return isInWishlist(currentVariant.value.variant_id);
+    
+    const wishlistItems = props.wishlistItems || [];
+    return wishlistItems.includes(currentVariant.value.variant_id.toString());
 });
 
 // Logika Stepper Quantity
@@ -69,7 +90,7 @@ const handleAddToCartClick = () => {
     });
 };
 
-// FUNGSI BARU: "Buy Now"
+// FUNGSI BARU: "Buy Now" - langsung ke checkout tanpa cart
 const handleBuyNowClick = () => {
     if (!selectedVariantId.value) {
         alert('Please select a variant first.');
@@ -84,23 +105,26 @@ const handleBuyNowClick = () => {
         return;
     }
 
-    // "Buy Now" = Tambah ke keranjang, DAN langsung redirect ke checkout
-    addToCart(selectedVariantId.value, quantity.value, {
-        onSuccess: () => {
-            // Langsung arahkan ke halaman checkout
-            router.get(route('checkout.index'), {
-                items: [selectedVariantId.value] 
-            }, {
-                preserveState: false
-            });
-        },
-        onError: (errors) => {
-            alert(errors.variant_id || errors.quantity || 'An error occurred.');
-        }
+    // Cek stock
+    if (!currentVariant.value || currentVariant.value.stock === 0) {
+        alert('This product is out of stock.');
+        return;
+    }
+
+    // Cek quantity tidak melebihi stock
+    if (quantity.value > currentVariant.value.stock) {
+        alert(`Only ${currentVariant.value.stock} items available in stock.`);
+        return;
+    }
+
+    // Langsung redirect ke checkout dengan item yang dipilih
+    router.get('/checkout', { 
+        items: [selectedVariantId.value],
+        quantity: quantity.value
     });
 };
 
-// Fungsi 'Wishlist'
+// Wishlist function - tanpa reload, gunakan event system
 const handleWishlistClick = () => {
     if (!currentVariant.value) return;
     
@@ -112,13 +136,27 @@ const handleWishlistClick = () => {
     }
 
     if (isWished.value) {
-        removeFromWishlist(currentVariant.value.variant_id);
+        removeFromWishlist(currentVariant.value.variant_id, {
+            onSuccess: () => {
+                // Event sudah ditangani oleh composable, tidak perlu reload
+            },
+            onError: (errors) => {
+                alert('Failed to remove from wishlist');
+            }
+        });
     } else {
-        addToWishlist(currentVariant.value.variant_id);
+        addToWishlist(currentVariant.value.variant_id, {
+            onSuccess: () => {
+                // Event sudah ditangani oleh composable, tidak perlu reload
+            },
+            onError: (errors) => {
+                alert('Failed to add to wishlist');
+            }
+        });
     }
 };
 
-// PERBAIKAN: Computed properties untuk class tombol
+// Computed properties untuk class tombol
 const addToCartButtonClasses = computed(() => {
     if (justAdded.value) {
         return 'bg-green-100 border-green-600';
@@ -142,6 +180,7 @@ const wishlistIconClasses = computed(() => {
 <template>
     <Head :title="product.name" />
 
+    <!-- Cart Success Popup -->
     <Transition
         enter-active-class="ease-out duration-300"
         enter-from-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
@@ -165,6 +204,35 @@ const wishlistIconClasses = computed(() => {
                 </h3>
                 <p class="mt-2 text-rose-700">
                     Successfully added to cart!
+                </p>
+            </div>
+        </div>
+    </Transition>
+
+    <!-- Flash Message Popup (untuk wishlist dan lainnya) -->
+    <Transition
+        enter-active-class="ease-out duration-300"
+        enter-from-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+        enter-to-class="opacity-100 translate-y-0 sm:scale-100"
+        leave-active-class="ease-in duration-200"
+        leave-from-class="opacity-100 translate-y-0 sm:scale-100"
+        leave-to-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+    >
+        <div 
+          v-if="isFlashVisible" 
+          class="fixed inset-0 flex items-center justify-center z-[9999] pointer-events-none"
+        >
+            <div class="bg-rose-50 border border-rose-200 rounded-lg shadow-xl p-8 text-center max-w-sm w-full pointer-events-auto">
+                <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100">
+                    <svg class="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                </div>
+                <h3 class="mt-5 text-2xl font-semibold text-rose-900">
+                    Success!
+                </h3>
+                <p class="mt-2 text-rose-700">
+                    {{ flash }}
                 </p>
             </div>
         </div>
@@ -254,7 +322,7 @@ const wishlistIconClasses = computed(() => {
                             </div>
                         </div>
 
-                        <!-- PERBAIKAN: Tombol Aksi dengan computed properties -->
+                        <!-- Tombol Aksi -->
                         <div class="flex items-center space-x-3 mt-6">
                             
                             <!-- Tombol Buy Now -->
@@ -267,7 +335,7 @@ const wishlistIconClasses = computed(() => {
                                 <span>Buy Now</span>
                             </button>
 
-                            <!-- Tombol Add to Cart (sekarang jadi icon) -->
+                            <!-- Tombol Add to Cart -->
                             <button
                                 @click="handleAddToCartClick"
                                 :disabled="!currentVariant || currentVariant.stock === 0 || isAddingToCart || justAdded"
@@ -287,7 +355,7 @@ const wishlistIconClasses = computed(() => {
                                 :disabled="!currentVariant || isAdding || isRemoving"
                                 :class="wishlistButtonClasses"
                                 class="p-3 border rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Add to Wishlist"
+                                :title="isWished ? 'Remove from Wishlist' : 'Add to Wishlist'"
                             >
                                 <Heart 
                                     class="h-6 w-6"
