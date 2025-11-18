@@ -21,6 +21,8 @@ class UserAddress extends Model
         'district_code',
         'full_address',
         'postal_code',
+        'latitude',      
+        'longitude',     
         'type',
         'is_default',
         'is_active',
@@ -29,6 +31,8 @@ class UserAddress extends Model
     protected $casts = [
         'is_default' => 'boolean',
         'is_active' => 'boolean',
+        'latitude' => 'decimal:8',   
+        'longitude' => 'decimal:8',  
     ];
 
     public function province(): BelongsTo
@@ -59,6 +63,34 @@ class UserAddress extends Model
     public function scopeDefault($query)
     {
         return $query->where('is_default', true);
+    }
+
+    public function scopeNearby($query, $latitude, $longitude, $radiusKm = 10)
+    {
+        return $query->selectRaw(
+            "*, (6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance",
+            [$latitude, $longitude, $latitude]
+        )->having('distance', '<', $radiusKm)
+         ->orderBy('distance');
+    }
+
+    public function getCoordinatesAttribute()
+    {
+        if ($this->latitude && $this->longitude) {
+            return [
+                'lat' => (float) $this->latitude,
+                'lng' => (float) $this->longitude
+            ];
+        }
+        return null;
+    }
+
+    public function getMapUrlAttribute()
+    {
+        if ($this->latitude && $this->longitude) {
+            return "https://www.openstreetmap.org/?mlat={$this->latitude}&mlon={$this->longitude}#map=15/{$this->latitude}/{$this->longitude}";
+        }
+        return null;
     }
 
     protected static function boot()

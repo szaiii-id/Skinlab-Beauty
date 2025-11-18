@@ -170,3 +170,17 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* Tambahkan di file CSS global Anda */
+@import 'leaflet/dist/leaflet.css';
+
+/* Atau jika menggunakan Tailwind, tambahkan di main CSS */
+.leaflet-container {
+    height: 400px;
+    width: 100%;
+    z-index: 1;
+}
+
+.leaflet-control-container {
+    z-index: 2;
+}
