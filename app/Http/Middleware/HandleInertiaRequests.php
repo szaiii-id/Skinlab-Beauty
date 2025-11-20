@@ -55,6 +55,8 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('toast_success'),
                 'error' => fn () => $request->session()->get('toast_error'),
+                // 'midtrans_redirect_url' => fn () => $request->session()->get('midtrans_redirect_url'),
+                'snap_token' => fn () => $request->session()->get('snap_token'),
             ],
 
             'auth' => [

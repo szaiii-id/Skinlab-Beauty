@@ -1,13 +1,11 @@
 <?php
 
-use App\Http\Controllers\Auth\CustomRegisterController;
 use App\Http\Controllers\Auth\VerificationController;
 use App\Http\Controllers\ProductPageController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\WhislistController;
-use Illuminate\Container\Attributes\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 

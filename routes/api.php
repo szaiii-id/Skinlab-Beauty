@@ -4,6 +4,7 @@
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\InstantSearchController;
 use App\Http\Controllers\Api\RegionController;
+use App\Http\Controllers\PaymentCallbackController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -29,3 +30,5 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/addresses/geocode', [AddressController::class, 'geocode']);
     Route::post('/addresses/reverse-geocode', [AddressController::class, 'reverseGeocode']);
 });
+
+Route::post('midtrans-callback', [PaymentCallbackController::class, 'handle']);
