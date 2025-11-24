@@ -24,7 +24,7 @@ class Order extends Model
     }
 
     // ✅ UPDATE: Relasi ke UserAddress (Bukan Address biasa)
-    public function address()
+    public function shippingAddress()
     {
         // Pastikan Anda punya model UserAddress.php
         return $this->belongsTo(UserAddress::class, 'shipping_address_id');

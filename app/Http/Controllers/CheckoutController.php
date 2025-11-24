@@ -68,19 +68,27 @@ class CheckoutController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        // 1. UPDATE VALIDASI
+        // Terima data ongkir real dari Frontend
         $request->validate([
             'shipping_address_id' => 'required|exists:user_addresses,id',
             'items' => 'required|array',
             'items.*.variant_id' => 'required|exists:product_variants,id',
             'items.*.quantity' => 'required|integer|min:1',
             'payment_method' => 'required|string',
-            'shipping_method' => 'required|string',
+            
+            // UBAH DISINI: Terima cost & courier hasil cek ongkir
+            'shipping_cost' => 'required|numeric', 
+            'shipping_courier' => 'required|string', 
         ]);
 
         DB::beginTransaction();
         try {
             $totalAmount = 0;
-            $shippingCost = ($request->shipping_method === 'express') ? 30000 : 15000;
+            
+            // 2. AMBIL ONGKIR REAL DARI REQUEST
+            // Jangan pakai hardcode 15000 lagi
+            $shippingCost = $request->shipping_cost; 
 
             $order = Order::create([
                 'user_id' => Auth::id(), 
@@ -88,6 +96,10 @@ class CheckoutController extends Controller
                 'order_number' => 'ORD-' . time() . rand(1000, 9999),
                 'subtotal' => 0,
                 'shipping_cost' => $shippingCost,
+                
+                // Simpan nama kurir (misal: "JNE - REG")
+                'shipping_courier' => $request->shipping_courier, 
+                
                 'total_amount' => 0,
                 'payment_method' => $request->payment_method,
                 'payment_status' => 'unpaid',
@@ -113,6 +125,7 @@ class CheckoutController extends Controller
                 ]);
             }
 
+            // Update Total (Subtotal + Ongkir Real)
             $order->update([
                 'subtotal' => $totalAmount,
                 'total_amount' => $totalAmount + $shippingCost
@@ -120,7 +133,6 @@ class CheckoutController extends Controller
 
             if ($request->payment_method === 'online_payment') {
                 
-                // Menggunakan Config dari .env (Pastikan .env Anda sudah benar)
                 Config::$serverKey = config('midtrans.server_key');
                 Config::$isProduction = config('midtrans.is_production');
                 Config::$isSanitized = config('midtrans.is_sanitized');
@@ -136,10 +148,11 @@ class CheckoutController extends Controller
                     'customer_details' => [
                         'first_name' => $user->name,
                         'email' => $user->email,
+                        // Tambahkan no hp jika ada biar di Midtrans lengkap
+                        'phone' => $user->phone_number ?? '', 
                     ],
                 ];
 
-                // ✅ KEMBALI KE getSnapToken (POPUP)
                 $snapToken = Snap::getSnapToken($params);
                 
                 $order->snap_token = $snapToken;
@@ -147,7 +160,6 @@ class CheckoutController extends Controller
 
                 DB::commit();
                 
-                // ✅ Kirim Token ke Frontend
                 return back()->with('snap_token', $snapToken);
             }
 
@@ -156,6 +168,8 @@ class CheckoutController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            // Log error biar gampang debug
+            \Illuminate\Support\Facades\Log::error("Checkout Error: " . $e->getMessage());
             return back()->with('toast_error', 'Failed: ' . $e->getMessage());
         }
     }

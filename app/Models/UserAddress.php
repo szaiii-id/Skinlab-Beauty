@@ -26,6 +26,7 @@ class UserAddress extends Model
         'type',
         'is_default',
         'is_active',
+        'komerce_destination_id',
     ];
 
     protected $casts = [
