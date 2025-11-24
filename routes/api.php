@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\InstantSearchController;
 use App\Http\Controllers\Api\RegionController;
 use App\Http\Controllers\PaymentCallbackController;
+use App\Http\Controllers\ShippingController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +30,17 @@ Route::middleware(['auth'])->group(function () {
     
     Route::post('/addresses/geocode', [AddressController::class, 'geocode']);
     Route::post('/addresses/reverse-geocode', [AddressController::class, 'reverseGeocode']);
-});
 
+});
+Route::post('/shipping/check-rates', [ShippingController::class, 'checkRates']);
 Route::post('midtrans-callback', [PaymentCallbackController::class, 'handle']);
+
+Route::post('/admin/orders/{id}/request-pickup', [ShippingController::class, 'requestPickup']);
+Route::get('/admin/orders/{id}/label', [ShippingController::class, 'getLabel']);
+Route::post('/admin/pickup/schedule', [ShippingController::class, 'schedulePickup']);
+Route::get('/orders/{id}/track', [ShippingController::class, 'trackShipment']);
+Route::get('/admin/orders/{id}/detail', [ShippingController::class, 'getOrderDetail']);
+Route::post('/admin/orders/{id}/cancel', [ShippingController::class, 'cancelShipment']);
+Route::post('/webhook/komerce', [ShippingController::class, 'handleWebhook']);
+
+Route::post('/test-manual', [ShippingController::class, 'testManual']);
