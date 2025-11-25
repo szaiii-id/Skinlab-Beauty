@@ -4,7 +4,9 @@ use App\Http\Controllers\Auth\VerificationController;
 use App\Http\Controllers\ProductPageController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\WhislistController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -66,12 +68,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
         return Inertia::render('Dashboard');
     })->name('dashboard');
-
+    
     Route::get('/my-account', function () {
         return Inertia::render('Account/Index'); 
     })->name('account.index');
-
-
+    
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     require __DIR__.'/settings.php';
 });
 
@@ -81,4 +83,5 @@ Route::middleware(['web'])->group(function () {
     Route::delete('/wishlist/{variant}', [WhislistController::class, 'destroy'])->name('wishlist.destroy');
     Route::post('/wishlist/{variant}/move-to-cart', [WhislistController::class, 'moveToCart'])->name('wishlist.move-to-cart');
     Route::get('/wishlist/status', [WhislistController::class, 'status'])->name('wishlist.status');
+    Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
 });
