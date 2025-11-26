@@ -3,8 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Settings\ProfileUpdateRequest;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Http\Requests\Settings\ProfileUpdateRequest; // <--- Pastikan Import ini ada
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,36 +12,28 @@ use Inertia\Response;
 
 class ProfileController extends Controller
 {
-    /**
-     * Show the user's profile settings page.
-     */
     public function edit(Request $request): Response
     {
         return Inertia::render('settings/Profile', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
         ]);
     }
 
-    /**
-     * Update the user's profile information.
-     */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        // 1. Ambil user yang sedang login
+        $user = $request->user();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
-        }
+        // 2. Isi data user dengan data yang sudah divalidasi (hanya 'name')
+        $user->fill($request->validated());
 
-        $request->user()->save();
+        // 3. Simpan ke database
+        $user->save();
 
-        return to_route('profile.edit');
+        // 4. Redirect kembali dengan pesan sukses
+        return to_route('profile.edit')->with('status', 'profile-updated');
     }
 
-    /**
-     * Delete the user's profile.
-     */
     public function destroy(Request $request): RedirectResponse
     {
         $request->validate([

@@ -10,6 +10,8 @@ import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
 import { initializeTheme } from './composables/useAppearance';
 
+// --- 1. IMPORT ZIGGY DISINI ---
+import { ZiggyVue } from 'ziggy-js';
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
@@ -22,6 +24,7 @@ createInertiaApp({
     setup({ el, App, props, plugin }) {
         createApp({ render: () => h(App, props) })
             .use(plugin)
+            .use(ZiggyVue) // --- 2. PASANG PLUGIN DISINI ---
             .mount(el);
     },
     progress: {

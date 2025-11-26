@@ -9,9 +9,7 @@ import {
     Calendar,
     Scan,
     Gift,
-    User,
-    ShoppingBag,
-    LogOut // Import Logout Icon
+    User
 } from 'lucide-vue-next';
 
 const page = usePage();
@@ -21,13 +19,14 @@ const user = computed(() => page.props.auth.user);
 
 const userMenu = [
     { label: 'Dashboard', icon: LayoutDashboard, route: '/dashboard' },
-    { label: 'My Orders', icon: Package, route: '/orders' }, // Linked to Order History
+    { label: 'My Orders', icon: Package, route: '/orders' },
     { label: 'Shopping Cart', icon: ShoppingCart, route: '/cart' },
     { label: 'My Wishlist', icon: Heart, route: '/wishlist' },
     { label: 'Skincare Routine', icon: Calendar, route: '/my-routine' },
     { label: 'Skin Analysis', icon: Scan, route: '/skin-analysis' },
     { label: 'Points & Rewards', icon: Gift, route: '/rewards' },
-    { label: 'My Profile', icon: User, route: '/profile' }
+    // Pastikan ada '/' di depan agar deteksi aktif berfungsi dengan baik
+    { label: 'My Profile', icon: User, route: '/settings/profile' } 
 ];
 
 // Get current URL path
@@ -37,20 +36,12 @@ const isActive = (route: string) => {
     if (route === '/dashboard') {
         return currentPath.value === '/dashboard';
     }
+    // Logic ini butuh '/' di awal route agar akurat
     return currentPath.value.startsWith(route);
 };
 
 const navigateTo = (route: string) => {
     router.get(route);
-};
-
-const goToCatalog = () => {
-    router.get('/catalog');
-};
-
-// Logout function
-const logout = () => {
-    router.post('/logout');
 };
 </script>
 
@@ -108,23 +99,6 @@ const logout = () => {
                 ></div>
             </button>
         </nav>
-
-        <div class="p-4 border-t border-rose-100 space-y-3 bg-white">
-            <button
-                @click="goToCatalog"
-                class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold rounded-lg hover:from-rose-600 hover:to-pink-600 transition-colors shadow-sm"
-            >
-                <ShoppingBag class="w-5 h-5" />
-                <span>Shop Products</span>
-            </button>
-
-            <button
-                @click="logout"
-                class="w-full flex items-center justify-center gap-2 px-4 py-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors text-sm font-medium"
-            >
-                <LogOut class="w-4 h-4" />
-                <span>Logout</span>
-            </button>
-        </div>
-    </aside>
+        
+        </aside>
 </template>

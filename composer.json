@@ -19,7 +19,8 @@
         "laravel/wayfinder": "^0.1.9",
         "laravolt/indonesia": "^0.38.0",
         "midtrans/midtrans-php": "^2.6",
-        "predis/predis": "^3.2"
+        "predis/predis": "^3.2",
+        "tightenco/ziggy": "^2.6"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

@@ -1,8 +1,6 @@
-<!-- resources/js/components/app/navbar.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { Link, usePage, router } from '@inertiajs/vue3';
-import AppLogo from './AppLogo.vue'; 
+import { Link, usePage } from '@inertiajs/vue3';
 import Searchbar from '@/components/Searchbar.vue';
 import { 
     ShoppingBag, 
@@ -14,7 +12,6 @@ import {
     Home
 } from 'lucide-vue-next';
 
-// Komponen Dropdown (untuk category dan brand saja)
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -23,26 +20,25 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-// Ambil props global
 const page = usePage();
 const categories = computed(() => page.props.categories || []);
 const brands = computed(() => page.props.brands || []);
 const cartCount = computed(() => page.props.cartCount || 0);
 const user = computed(() => page.props.auth.user);
 
-// Wishlist count state - gunakan dari props dan real-time updates
+// Ambil jumlah pending order dari props (backend)
+const pendingOrdersCount = computed(() => page.props.pendingOrdersCount || 0);
+
 const wishlistCount = ref(page.props.wishlistCount || 0);
 
 watch(() => page.props.wishlistCount, (newCount) => {
     wishlistCount.value = newCount || 0;
 });
 
-// Fungsi untuk handle wishlist updates
 const handleWishlistUpdate = (event) => {
     wishlistCount.value = event.detail.count;
 };
 
-// Listen untuk wishlist updates
 onMounted(() => {
     window.addEventListener('wishlist-updated', handleWishlistUpdate);
 });
@@ -51,45 +47,17 @@ onUnmounted(() => {
     window.removeEventListener('wishlist-updated', handleWishlistUpdate);
 });
 
-// ==========================================================
-// HELPER UNTUK KONDISI AKTIF (COMPUTED PROPERTIES)
-// ==========================================================
-
-// Home aktif hanya jika URL adalah root (tepat '/')
+// Helper Kondisi Aktif
 const isHomeActive = computed(() => page.url === '/');
-
-// Catalog aktif jika URL adalah /catalog ATAU diawali dengan /products (untuk halaman show)
-const isCatalogActive = computed(() => {
-    return page.url === '/catalog' || page.url.startsWith('/products');
-});
-
-// About aktif hanya jika URL adalah /about
+const isCatalogActive = computed(() => page.url === '/catalog' || page.url.startsWith('/products'));
 const isAboutActive = computed(() => page.url === '/about');
-
-// Wishlist aktif jika URL adalah /wishlist
 const isWishlistActive = computed(() => page.url === '/wishlist');
-
-// Cart aktif jika URL adalah /cart
 const isCartActive = computed(() => page.url === '/cart');
-
-// Dropdown aktif jika URL diawali dengan path-nya
 const isCategoryDropdownActive = computed(() => page.url.startsWith('/categories'));
 const isBrandDropdownActive = computed(() => page.url.startsWith('/brands'));
 
-// ==========================================================
-// LOGIC UNTUK ICON AKUN
-// ==========================================================
-
-// Tentukan href berdasarkan status login
-const accountHref = computed(() => {
-    return user.value ? '/dashboard' : '/login';
-});
-
-// Tentukan title berdasarkan status login
-const accountTitle = computed(() => {
-    return user.value ? 'My Dashboard' : 'Login / Register';
-});
-
+const accountHref = computed(() => user.value ? '/dashboard' : '/login');
+const accountTitle = computed(() => user.value ? 'My Dashboard' : 'Login / Register');
 </script>
 
 <template>
@@ -98,58 +66,36 @@ const accountTitle = computed(() => {
             <div class="flex justify-between h-16">
                 
                 <div class="flex items-center">
-                    <div class="flex-shrink-0 mr-6">
-                        <Link href="/">
-                            <AppLogo />
+                    <div class="flex-shrink-0 mr-6 cursor-pointer">
+                        <Link href="/" class="flex flex-col items-start justify-center">
+                            <div class="text-xl font-light leading-none text-rose-800 bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                                SkinLab
+                            </div>
+                            <div class="text-[8px] text-rose-500 font-medium tracking-[0.25em] uppercase mt-0.5">
+                                BEAUTY
+                            </div>
                         </Link>
                     </div>
                     
-                    <nav class="hidden sm:flex sm:space-x-4 items-center">
-                        
-                        <Link 
-                            href="/" 
-                            :class="{ 
-                                'border-rose-500 text-gray-900 border-b-2': isHomeActive, 
-                                'border-transparent text-gray-500 hover:text-gray-900 border-b-2': !isHomeActive
-                            }"
-                            class="inline-flex items-center px-1 pt-1 text-sm font-medium"
-                        >
-                            <Home class="mr-2 h-5 w-5" />
-                            <span>Home</span>
+                    <nav class="hidden sm:flex sm:space-x-6 items-center">
+                        <Link href="/" :class="isHomeActive ? 'text-rose-600 border-b-2 border-rose-600' : 'text-gray-500 hover:text-gray-900'" class="px-1 py-5 text-sm font-medium transition-colors flex items-center gap-2">
+                            <Home class="w-4 h-4" /> Home
                         </Link>
                         
-                        <Link 
-                            href="/catalog" 
-                            :class="{ 
-                                'border-rose-500 text-gray-900 border-b-2': isCatalogActive,
-                                'border-transparent text-gray-500 hover:text-gray-900 border-b-2': !isCatalogActive
-                            }"
-                            class="inline-flex items-center px-1 pt-1 text-sm font-medium"
-                        >
-                            <ShoppingBag class="mr-2 h-5 w-5" />
-                            <span>Catalog</span>
+                        <Link href="/catalog" :class="isCatalogActive ? 'text-rose-600 border-b-2 border-rose-600' : 'text-gray-500 hover:text-gray-900'" class="px-1 py-5 text-sm font-medium transition-colors flex items-center gap-2">
+                            <ShoppingBag class="w-4 h-4" /> Catalog
                         </Link>
 
                         <DropdownMenu>
                             <DropdownMenuTrigger as-child>
-                                <button 
-                                    :class="{ 
-                                        'border-rose-500 text-gray-900 border-b-2': isCategoryDropdownActive, 
-                                        'border-transparent text-gray-500 hover:text-gray-900 border-b-2': !isCategoryDropdownActive
-                                    }"
-                                    class="inline-flex items-center px-1 pt-1 text-sm font-medium"
-                                >
-                                    <span>Category</span>
-                                    <ChevronDown class="ml-1 h-4 w-4" />
+                                <button :class="isCategoryDropdownActive ? 'text-rose-600 border-b-2 border-rose-600' : 'text-gray-500 hover:text-gray-900'" class="px-1 py-5 text-sm font-medium transition-colors flex items-center gap-1 outline-none">
+                                    Category <ChevronDown class="w-3 h-3" />
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent class="w-56 bg-white shadow-lg ring-1 ring-black ring-opacity-5 rounded-md" align="start">
                                 <DropdownMenuGroup>
                                     <DropdownMenuItem v-for="category in categories" :key="category.id" as-child>
-                                        <Link :href="`/categories/${category.slug}`"
-                                            class="block w-full px-4 py-2 text-sm text-gray-700 
-                                                   hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus:bg-rose-50 focus:text-rose-600"
-                                        >
+                                        <Link :href="`/categories/${category.slug}`" class="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-rose-50 hover:text-rose-600">
                                             {{ category.name }}
                                         </Link>
                                     </DropdownMenuItem>
@@ -159,24 +105,14 @@ const accountTitle = computed(() => {
 
                         <DropdownMenu>
                             <DropdownMenuTrigger as-child>
-                                <button 
-                                    :class="{ 
-                                        'border-rose-500 text-gray-900 border-b-2': isBrandDropdownActive, 
-                                        'border-transparent text-gray-500 hover:text-gray-900 border-b-2': !isBrandDropdownActive
-                                    }"
-                                    class="inline-flex items-center px-1 pt-1 text-sm font-medium"
-                                >
-                                    <span>Brand</span>
-                                    <ChevronDown class="ml-1 h-4 w-4" />
+                                <button :class="isBrandDropdownActive ? 'text-rose-600 border-b-2 border-rose-600' : 'text-gray-500 hover:text-gray-900'" class="px-1 py-5 text-sm font-medium transition-colors flex items-center gap-1 outline-none">
+                                    Brand <ChevronDown class="w-3 h-3" />
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent class="w-56 bg-white shadow-lg ring-1 ring-black ring-opacity-5 rounded-md" align="start">
                                 <DropdownMenuGroup>
                                     <DropdownMenuItem v-for="brand in brands" :key="brand.id" as-child>
-                                        <Link :href="`/brands/${brand.slug}`"
-                                            class="block w-full px-4 py-2 text-sm text-gray-700 
-                                                   hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus:bg-rose-50 focus:text-rose-600"
-                                        >
+                                        <Link :href="`/brands/${brand.slug}`" class="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-rose-50 hover:text-rose-600">
                                             {{ brand.name }}
                                         </Link>
                                     </DropdownMenuItem>
@@ -184,18 +120,9 @@ const accountTitle = computed(() => {
                             </DropdownMenuContent>
                         </DropdownMenu>
                         
-                        <Link 
-                            href="/about" 
-                            :class="{ 
-                                'border-rose-500 text-gray-900 border-b-2': isAboutActive, 
-                                'border-transparent text-gray-500 hover:text-gray-900 border-b-2': !isAboutActive
-                            }"
-                            class="inline-flex items-center px-1 pt-1 text-sm font-medium"
-                        >
-                            <Info class="mr-2 h-5 w-5" />
-                            <span>About</span>
+                        <Link href="/about" :class="isAboutActive ? 'text-rose-600 border-b-2 border-rose-600' : 'text-gray-500 hover:text-gray-900'" class="px-1 py-5 text-sm font-medium transition-colors flex items-center gap-2">
+                            <Info class="w-4 h-4" /> About
                         </Link>
-
                     </nav>
                 </div>
 
@@ -203,55 +130,41 @@ const accountTitle = computed(() => {
                     <Searchbar />
                 </div>
 
-                <div class="flex items-center space-x-3">
-                    <!-- Wishlist Icon dengan Counter -->
-                    <Link 
-                        href="/wishlist" 
-                        :class="{ 
-                            'text-rose-600 bg-rose-50': isWishlistActive,
-                            'text-gray-500 hover:text-rose-600 hover:bg-rose-50': !isWishlistActive
-                        }"
-                        class="relative p-2 rounded-full transition-colors"
-                        title="My Wishlist"
-                    >
-                        <Heart class="h-6 w-6" />
-                        <span 
-                            v-if="wishlistCount > 0"
-                            class="absolute -top-1 -right-1 bg-rose-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
-                        >
+                <div class="flex items-center space-x-2">
+                    <Link href="/wishlist" :class="isWishlistActive ? 'text-rose-600 bg-rose-50' : 'text-gray-500 hover:text-rose-600 hover:bg-rose-50'" class="relative p-2.5 rounded-full transition-colors">
+                        <Heart class="h-5 w-5" />
+                        <span v-if="wishlistCount > 0" class="absolute top-0 right-0 bg-rose-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center ring-2 ring-white">
                             {{ wishlistCount }}
                         </span>
                     </Link>
 
-                    <!-- Cart Icon dengan Counter -->
-                    <Link 
-                        href="/cart" 
-                        :class="{ 
-                            'text-rose-600 bg-rose-50': isCartActive,
-                            'text-gray-500 hover:text-rose-600 hover:bg-rose-50': !isCartActive
-                        }"
-                        class="relative p-2 rounded-full transition-colors"
-                        title="View Cart"
-                    >
-                        <ShoppingCart class="h-6 w-6" />
-                        <span 
-                            v-if="cartCount > 0"
-                            class="absolute -top-1 -right-1 bg-rose-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
-                        >
+                    <Link href="/cart" :class="isCartActive ? 'text-rose-600 bg-rose-50' : 'text-gray-500 hover:text-rose-600 hover:bg-rose-50'" class="relative p-2.5 rounded-full transition-colors">
+                        <ShoppingCart class="h-5 w-5" />
+                        <span v-if="cartCount > 0" class="absolute top-0 right-0 bg-rose-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center ring-2 ring-white">
                             {{ cartCount }}
                         </span>
                     </Link>
 
-                    <!-- Account Icon -->
                     <Link 
                         :href="accountHref"
-                        class="p-2 rounded-full text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        class="relative p-1.5 rounded-full text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-1"
                         :title="accountTitle"
                     >
-                        <span v-if="user" class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-600 font-semibold text-xs">
-                            {{ user.name.charAt(0) }}
+                        <span v-if="user" class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-pink-500 text-white font-medium text-sm shadow-sm">
+                            {{ user.name.charAt(0).toUpperCase() }}
                         </span>
-                        <User v-else class="h-6 w-6 text-gray-500" />
+                        
+                        <div v-else class="p-1">
+                            <User class="h-6 w-6" />
+                        </div>
+
+                        <span 
+                            v-if="user && pendingOrdersCount > 0"
+                            class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center ring-2 ring-white animate-pulse"
+                            title="Pesanan belum selesai"
+                        >
+                            {{ pendingOrdersCount }}
+                        </span>
                     </Link>
 
                 </div>

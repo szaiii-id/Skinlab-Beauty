@@ -50,7 +50,11 @@ class HandleInertiaRequests extends Middleware
             'cartCount' => fn () => count($request->session()->get('cart', [])),
             'wishlistCount' => fn () => count($request->session()->get('wishlist', [])), // HANYA SATU INI
             'promoBanners' => fn () => resolve(PromoBannerService::class)->getActiveBanners(),
-            
+            'pendingOrdersCount' => $request->user() 
+            ? \App\Models\Order::where('user_id', $request->user()->id)
+                ->whereIn('order_status', ['pending', 'paid', 'shipped']) // Status yang dianggap "Belum Selesai"
+                ->count() 
+            : 0,
             // 'Flash message' untuk Pop-up Modal Sukses
             'flash' => [
                 'success' => fn () => $request->session()->get('toast_success'),
