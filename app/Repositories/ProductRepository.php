@@ -18,7 +18,7 @@ class ProductRepository
 
     public function findByIdWithVariants(int $id): ?Product
     {
-        return Product::with('variants', 'category', 'brand')
+        return Product::with('variants', 'category', 'brand', 'reviews.user')
             ->find($id);
     }
 

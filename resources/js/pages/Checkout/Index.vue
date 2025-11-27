@@ -33,7 +33,7 @@ const selectedService = ref(null);
 const isLoadingShipping = ref(false);
 const apiError = ref('');
 
-const selectedPayment = ref('online_payment');
+// const selectedPayment = ref('online_payment'); // DELETE: Tidak perlu ref terpisah agar tidak bentrok
 const voucherCode = ref('');
 
 const form = useForm({
@@ -41,15 +41,14 @@ const form = useForm({
     shipping_address_id: '',
     shipping_cost: 0,
     shipping_courier: '',
-    payment_method: selectedPayment,
-    voucher_code: voucherCode,
+    payment_method: 'online_payment', // FIX: Set default langsung string
+    voucher_code: '', // FIX: Sebaiknya string kosong, nanti bind v-model langsung ke form.voucher_code jika ada inputnya
     notes: ''
 });
 
 // --- GROUPING KURIR ---
 const groupedRates = computed(() => {
     const groups = {};
-    // Sort termurah dulu
     const sortedRates = [...rawShippingRates.value].sort((a, b) => a.price - b.price);
 
     sortedRates.forEach(rate => {
@@ -77,14 +76,12 @@ const fetchShippingRates = async (addressId) => {
             items: props.items.map(item => ({ variant_id: item.variant_id, quantity: item.quantity }))
         });
 
-        // Filter harga > 1 Juta & Sort
         const cleanRates = response.data.rates
             .filter(r => r.price < 1000000) 
             .sort((a, b) => a.price - b.price);
 
         rawShippingRates.value = cleanRates;
 
-        // Auto Select Termurah
         if (cleanRates.length > 0) {
             const cheapest = cleanRates[0];
             selectService(cheapest);
@@ -107,11 +104,8 @@ const selectService = (service) => {
 
 // --- HANDLE ADDRESS ---
 const handleAddressSelected = (address) => {
-    // Logic tetap jalan: simpan address ke state & cari ongkir
     selectedAddress.value = address;
     form.shipping_address_id = address.id;
-    
-    // Langsung cari ongkir
     fetchShippingRates(address.id);
 };
 
@@ -122,7 +116,6 @@ onMounted(() => {
     script.setAttribute('data-client-key', props.midtrans_client_key);
     document.head.appendChild(script);
 
-    // Auto Select Default Address (Logic berjalan, tapi UI tidak double)
     if (props.user_address) {
         handleAddressSelected(props.user_address);
     }
@@ -144,6 +137,7 @@ const submitOrder = () => {
     form.post('/checkout', {
         preserveScroll: true,
         onSuccess: () => {
+            // FIX LOGIC: Cek metode pembayaran langsung dari form
             if (form.payment_method === 'online_payment') {
                 const snapToken = page.props.flash?.snap_token;
                 if (snapToken) {
@@ -154,6 +148,9 @@ const submitOrder = () => {
                         onClose: function() { console.log('Popup closed'); }
                     });
                 }
+            } else {
+                // FIX: Jika COD, langsung redirect ke success page (karena tidak butuh Snap)
+                router.visit('/checkout/success');
             }
         },
         onError: (errors) => {
@@ -177,10 +174,8 @@ const submitOrder = () => {
                     
                     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h2 class="text-lg font-semibold text-black mb-4">Alamat Pengiriman</h2>
-                        
                         <AddressManager @address-selected="handleAddressSelected" />
-                        
-                        </div>
+                    </div>
 
                     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h2 class="text-lg font-semibold text-black mb-4">Metode Pengiriman</h2>
@@ -238,7 +233,7 @@ const submitOrder = () => {
 
                     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h2 class="text-lg font-semibold text-black mb-4">Metode Pembayaran</h2>
-                        <PaymentMethodSelector v-model="selectedPayment" />
+                        <PaymentMethodSelector v-model="form.payment_method" />
                     </div>
                     
                     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -282,7 +277,7 @@ const submitOrder = () => {
                                 <span v-if="form.processing">Memproses...</span>
                                 <span v-else-if="!selectedAddress">Pilih Alamat Dulu</span>
                                 <span v-else-if="!selectedService">Pilih Kurir Dulu</span>
-                                <span v-else>{{ selectedPayment === 'cod' ? 'Pesan (COD)' : 'Bayar Sekarang' }}</span>
+                                <span v-else>{{ form.payment_method === 'cod' ? 'Pesan (COD)' : 'Bayar Sekarang' }}</span>
                             </button>
                         </div>
                     </div>

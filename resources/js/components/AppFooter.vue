@@ -33,8 +33,8 @@ const handleNewsletterSubmit = () => {
                     <ul class="mt-4 space-y-3">
                         <li><Link href="/faq" class="text-base text-gray-500 hover:text-rose-600">FAQ</Link></li>
                         <li><Link href="/contact" class="text-base text-gray-500 hover:text-rose-600">Contact Us</Link></li>
-                        <li><Link href="/shipping" class="text-base text-gray-500 hover:text-rose-600">Shipping & Returns</Link></li>
-                        <li><Link href="/track-order" class="text-base text-gray-500 hover:text-rose-600">Track Order</Link></li>
+                        <li><Link href="/orders" class="text-base text-gray-500 hover:text-rose-600">Shipping & Returns</Link></li>
+                        <li><Link href="/orders" class="text-base text-gray-500 hover:text-rose-600">Track Order</Link></li>
                     </ul>
                 </div>
 

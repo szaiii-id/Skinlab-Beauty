@@ -20,6 +20,20 @@ class ProductResource extends JsonResource
             'category' => new CategoryResource($this->whenLoaded('category')),
             'brand' => new BrandResource($this->whenLoaded('brand')),
             'variants' => ProductVariantResource::collection($this->whenLoaded('variants')),
+            'reviews' => $this->whenLoaded('reviews', function() {
+                return $this->reviews->map(function($review) {
+                    return [
+                        'id' => $review->id,
+                        'rating' => $review->rating,
+                        'comment' => $review->comment,
+                        'created_at' => $review->created_at,
+                        'user' => $review->user ? [
+                            'id' => $review->user->id,
+                            'name' => $review->user->name,
+                        ] : ['name' => 'Pengguna Terhapus'],
+                    ];
+                });
+            }),
         ];
     }
 }
