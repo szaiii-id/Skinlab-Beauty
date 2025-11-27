@@ -46,4 +46,19 @@ class Product extends Model
     {
         return $this->belongsTo(Brand::class);
     }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class)->where('is_hidden', false)->latest();
+    }
+
+    public function getRatingAttribute()
+    {
+        return round($this->reviews()->avg('rating'), 1) ?? 0;
+    }
+
+    public function getReviewCountAttribute()
+    {
+        return $this->reviews()->count();
+    }
 }
