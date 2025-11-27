@@ -23,10 +23,13 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    // ✅ UPDATE: Relasi ke UserAddress (Bukan Address biasa)
     public function shippingAddress()
     {
-        // Pastikan Anda punya model UserAddress.php
         return $this->belongsTo(UserAddress::class, 'shipping_address_id');
+    }
+
+    public function cancellation()
+    {
+        return $this->hasOne(OrderCancellation::class);
     }
 }
