@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\ProductVariant;
 use App\Models\UserAddress;
+use App\Models\UserReward; // --- TAMBAHAN BARU ---
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -46,13 +47,28 @@ class CheckoutController extends Controller
 
         if (empty($checkoutItems)) return redirect()->back()->with('toast_error', 'Items unavailable.');
 
-        $shippingFee = 15000;
-        $total = $subtotal + $shippingFee;
+        $shippingFee = 0; // Default 0, nanti dihitung di frontend via API
+        $total = $subtotal;
 
         $defaultAddress = UserAddress::where('user_id', Auth::id())
             ->with(['province', 'city', 'district']) 
             ->latest()
             ->first();
+
+        // --- REWARD LOGIC: AMBIL VOUCHER USER YANG AKTIF ---
+        $availableVouchers = UserReward::where('user_id', Auth::id())
+            ->where('is_used', false)
+            ->where(function($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->with('reward') // Eager load detail reward (nilai diskon, min spend)
+            ->get()
+            ->filter(function($userReward) use ($subtotal) {
+                // Filter di PHP: Hanya ambil voucher yang memenuhi syarat Min Spend
+                return $subtotal >= ($userReward->reward->min_spend ?? 0);
+            })
+            ->values(); // Reset index array
+        // ---------------------------------------------------
 
         return Inertia::render('Checkout/Index', [
             'items' => $checkoutItems,
@@ -61,59 +77,95 @@ class CheckoutController extends Controller
             'total' => $total,
             'isDirectPurchase' => !$request->has('from_cart'),
             'user_address' => $defaultAddress,
-            // Kirim Client Key ke Vue agar Popup bisa jalan
-            'midtrans_client_key' => config('midtrans.client_key'), 
+            'midtrans_client_key' => config('midtrans.client_key'),
+            
+            // Kirim ke Frontend
+            'available_vouchers' => $availableVouchers 
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        // 1. UPDATE VALIDASI
-        // Terima data ongkir real dari Frontend
         $request->validate([
             'shipping_address_id' => 'required|exists:user_addresses,id',
             'items' => 'required|array',
             'items.*.variant_id' => 'required|exists:product_variants,id',
             'items.*.quantity' => 'required|integer|min:1',
             'payment_method' => 'required|string',
-            
-            // UBAH DISINI: Terima cost & courier hasil cek ongkir
             'shipping_cost' => 'required|numeric', 
-            'shipping_courier' => 'required|string', 
+            'shipping_courier' => 'required|string',
+            'voucher_code' => 'nullable|string|exists:user_rewards,code' // Validasi kode voucher
         ]);
 
         DB::beginTransaction();
         try {
             $totalAmount = 0;
-            
-            // 2. AMBIL ONGKIR REAL DARI REQUEST
-            // Jangan pakai hardcode 15000 lagi
+            $subtotalCheck = 0; // Untuk validasi ulang voucher
             $shippingCost = $request->shipping_cost; 
+            
+            // 1. Hitung Subtotal Real dulu (Keamanan)
+            foreach ($request->items as $item) {
+                $variant = ProductVariant::find($item['variant_id']);
+                if ($variant) {
+                    $subtotalCheck += $variant->price * $item['quantity'];
+                }
+            }
+
+            // --- REWARD LOGIC: HITUNG DISKON ---
+            $discountAmount = 0;
+            $usedVoucher = null;
+
+            if ($request->voucher_code) {
+                // Cari Voucher
+                $userReward = UserReward::where('code', $request->voucher_code)
+                    ->where('user_id', Auth::id())
+                    ->where('is_used', false)
+                    ->with('reward')
+                    ->first();
+
+                if ($userReward) {
+                    // Validasi Min Spend lagi (Backend validation is a must)
+                    if ($subtotalCheck >= $userReward->reward->min_spend) {
+                        
+                        if ($userReward->reward->type === 'discount_fixed') {
+                            $discountAmount = $userReward->reward->value;
+                        } elseif ($userReward->reward->type === 'discount_percent') {
+                            $discountAmount = ($subtotalCheck * $userReward->reward->value) / 100;
+                            // Opsional: Cek max discount jika ada
+                        }
+                        
+                        // Tandai voucher akan dipakai
+                        $usedVoucher = $userReward;
+                    }
+                }
+            }
+            // -----------------------------------
 
             $order = Order::create([
                 'user_id' => Auth::id(), 
                 'shipping_address_id' => $request->shipping_address_id,
                 'order_number' => 'ORD-' . time() . rand(1000, 9999),
-                'subtotal' => 0,
+                'subtotal' => 0, // Nanti diupdate
                 'shipping_cost' => $shippingCost,
-                
-                // Simpan nama kurir (misal: "JNE - REG")
                 'shipping_courier' => $request->shipping_courier, 
-                
-                'total_amount' => 0,
+                'discount_amount' => $discountAmount, // Simpan Diskon
+                'voucher_code' => $request->voucher_code, // Simpan Kode
+                'total_amount' => 0, // Nanti diupdate
                 'payment_method' => $request->payment_method,
                 'payment_status' => 'unpaid',
                 'order_status' => 'pending',
                 'notes' => $request->notes,
             ]);
 
+            // Insert Items (Sama seperti sebelumnya)
+            $calculatedSubtotal = 0;
             foreach ($request->items as $item) {
                 $variant = ProductVariant::with('product')->find($item['variant_id']);
                 if (!$variant) continue;
 
                 $price = $variant->price;
-                $subtotalItem = $price * $item['quantity'];
-                $totalAmount += $subtotalItem;
+                $subItemTotal = $price * $item['quantity'];
+                $calculatedSubtotal += $subItemTotal;
 
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -121,17 +173,32 @@ class CheckoutController extends Controller
                     'product_name' => $variant->product->name ?? 'Product',
                     'quantity' => $item['quantity'],
                     'price' => $price,
-                    'subtotal' => $subtotalItem,
+                    'subtotal' => $subItemTotal,
                 ]);
             }
 
-            // Update Total (Subtotal + Ongkir Real)
+            // Hitung Grand Total Akhir
+            // Rumus: Subtotal + Ongkir - Diskon
+            $grandTotal = ($calculatedSubtotal + $shippingCost) - $discountAmount;
+            
+            // Safety: Total tidak boleh minus
+            if ($grandTotal < 0) $grandTotal = 0;
+
             $order->update([
-                'subtotal' => $totalAmount,
-                'total_amount' => $totalAmount + $shippingCost
+                'subtotal' => $calculatedSubtotal,
+                'total_amount' => $grandTotal
             ]);
 
-            if ($request->payment_method === 'online_payment') {
+            // --- REWARD LOGIC: TANDAI VOUCHER TERPAKAI ---
+            if ($usedVoucher) {
+                $usedVoucher->update([
+                    'is_used' => true,
+                    // Opsional: Simpan tanggal dipakai
+                ]);
+            }
+            // ---------------------------------------------
+
+            if ($request->payment_method === 'online_payment' && $grandTotal > 0) {
                 
                 Config::$serverKey = config('midtrans.server_key');
                 Config::$isProduction = config('midtrans.is_production');
@@ -148,9 +215,9 @@ class CheckoutController extends Controller
                     'customer_details' => [
                         'first_name' => $user->name,
                         'email' => $user->email,
-                        // Tambahkan no hp jika ada biar di Midtrans lengkap
                         'phone' => $user->phone_number ?? '', 
                     ],
+                    // Item details opsional (Midtrans kadang strict soal total match item)
                 ];
 
                 $snapToken = Snap::getSnapToken($params);
@@ -159,16 +226,16 @@ class CheckoutController extends Controller
                 $order->save();
 
                 DB::commit();
-                
                 return back()->with('snap_token', $snapToken);
             }
 
             DB::commit();
-            return to_route('checkout.success')->with('toast_success', 'Order placed via COD!');
+            
+            // Jika total 0 (misal voucher 100%), langsung success tanpa midtrans
+            return to_route('checkout.success')->with('toast_success', 'Order placed successfully!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            // Log error biar gampang debug
             \Illuminate\Support\Facades\Log::error("Checkout Error: " . $e->getMessage());
             return back()->with('toast_error', 'Failed: ' . $e->getMessage());
         }

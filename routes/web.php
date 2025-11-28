@@ -10,6 +10,9 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\WhislistController;
 use App\Http\Controllers\OrderReturnController;
+use App\Http\Controllers\RewardController;
+use App\Http\Controllers\SkinAnalysisController;
+use App\Http\Controllers\SkincareRoutineController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -71,6 +74,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // order return
     Route::post('/orders/{id}/return', [OrderReturnController::class, 'store'])->name('orders.return');
 
+    // skin analysis
+    Route::get('/skin-analysis', [SkinAnalysisController::class, 'index'])->name('skin-analysis.index');
+    Route::post('/skin-analysis', [SkinAnalysisController::class, 'store'])->name('skin-analysis.store');
+
+    // skincare routine
+    Route::get('/my-routine', [SkincareRoutineController::class, 'index'])->name('routine.index');
+    Route::post('/my-routine', [SkincareRoutineController::class, 'store'])->name('routine.store');
+    Route::put('/my-routine/{id}', [SkincareRoutineController::class, 'update'])->name('routine.update');
+    Route::post('/my-routine/{id}/toggle', [SkincareRoutineController::class, 'toggleCheck'])->name('routine.toggle');
+    Route::delete('/my-routine/{id}', [SkincareRoutineController::class, 'destroy'])->name('routine.destroy');
+    
+    // rewards
+    Route::get('/rewards', [RewardController::class, 'index'])->name('rewards.index');
+    Route::post('/rewards/{id}/redeem', [RewardController::class, 'redeem'])->name('rewards.redeem');
+    
     // INCLUDE SETTINGS ROUTE DI SINI
     require __DIR__.'/settings.php';
 });

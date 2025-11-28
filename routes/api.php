@@ -2,6 +2,7 @@
 // [file name]: routes/api.php
 
 use App\Http\Controllers\Api\AddressController;
+use App\Http\Controllers\Api\FcmController;
 use App\Http\Controllers\Api\InstantSearchController;
 use App\Http\Controllers\Api\RegionController;
 use App\Http\Controllers\PaymentCallbackController;
@@ -14,6 +15,8 @@ Route::get('/instant-search', [InstantSearchController::class, 'index']);
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+Route::middleware('auth:sanctum')->post('/fcm-token', [FcmController::class, 'store']);
 
 Route::middleware(['auth'])->group(function () {
     
