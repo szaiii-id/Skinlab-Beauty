@@ -7,7 +7,9 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\WhislistController;
+use App\Http\Controllers\OrderReturnController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -60,6 +62,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/wishlist/{variant}/move-to-cart', [WhislistController::class, 'moveToCart'])->name('wishlist.move-to-cart');
     Route::get('/wishlist/status', [WhislistController::class, 'status'])->name('wishlist.status');
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
+
+    // riview product
+    Route::post('/reviews', [ReviewController::class, 'store'])->name('reviews.store')->middleware('auth');
+    // user cancel order
+    Route::post('/orders/{id}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
+
+    // order return
+    Route::post('/orders/{id}/return', [OrderReturnController::class, 'store'])->name('orders.return');
 
     // INCLUDE SETTINGS ROUTE DI SINI
     require __DIR__.'/settings.php';

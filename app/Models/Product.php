@@ -17,8 +17,12 @@ class Product extends Model
         'name',
         'description',
         'slug',
+        'suitability_tags', 
     ];
 
+    protected $casts = [
+        'suitability_tags' => 'array',
+    ];
     /**
      * Get the category that owns the Product
      *
