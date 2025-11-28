@@ -20,12 +20,19 @@ class ProductFactory extends Factory
     public function definition(): array
     {
         $productName = fake()->words(3, true);
+
+        $possibleTags = [
+            'Oily Skin', 'Dry Skin', 'Combination Skin', 'Normal Skin', 
+            'Acne', 'Aging', 'Dullness', 'Sensitive', 'Pores', 'Blackheads'
+        ];
+
         return [
             'category_id' => Category::inRandomOrder()->first()->id,
             'brand_id' => Brand::inRandomOrder()->first()->id,
             'name' => 'Product ' . $productName,
             'slug' => Str::slug($productName),
             'description' => fake()->paragraph(),
+            'suitability_tags' => fake()->randomElements($possibleTags, fake()->numberBetween(1, 4)),
         ];
     }
 }
