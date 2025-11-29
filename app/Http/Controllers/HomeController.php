@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\ProductResource;
 use App\Http\Resources\PromoBannerResource;
-use App\Models\Product;
-use App\Models\UserSkinProfile;
 use App\Services\ProductService;
 use App\Services\PromoBannerService;
 use Illuminate\Support\Facades\Auth;
@@ -25,32 +23,21 @@ class HomeController extends Controller
 
     public function index(): Response
     {
+        // 1. Ambil data global (Cached)
         $newReleases = $this->productService->getNewReleases();
         $bestSellers = $this->productService->getBestSellers();
         $promoBanners = $this->promoBannerService->getActiveBanners();
 
+        // 2. Siapkan variabel rekomendasi
         $recommendedProducts = [];
         $userSkinType = null;
 
+        // 3. Ambil rekomendasi personal (Cached per User di Service)
         if (Auth::check()) {
-            $profile = UserSkinProfile::where('user_id', Auth::id())->first();
-
-            if ($profile) {
-                $userSkinType = $profile->skin_type;
-
-                $query = Product::with(['variants', 'category', 'brand'])
-                    ->whereJsonContains('suitability_tags', $profile->skin_type);
-
-                if (!empty($profile->skin_concerns)) {
-                    $query->orWhere(function($q) use ($profile) {
-                        foreach ($profile->skin_concerns as $concern) {
-                            $q->orWhereJsonContains('suitability_tags', $concern);
-                        }
-                    });
-                }
-
-                $recommendedProducts = $query->inRandomOrder()->take(4)->get();
-            }
+            $recommendationData = $this->productService->getPersonalizedRecommendations(Auth::user());
+            
+            $recommendedProducts = $recommendationData['products'];
+            $userSkinType = $recommendationData['skin_type'];
         }
 
         return Inertia::render('Home', [

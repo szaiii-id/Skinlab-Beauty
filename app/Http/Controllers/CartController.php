@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ProductVariant;
+use App\Services\CartService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -10,81 +10,61 @@ use Illuminate\Http\RedirectResponse;
 
 class CartController extends Controller
 {
-    /**
-     * Menampilkan halaman keranjang belanja
-     */
-    public function index(Request $request): Response
+    protected CartService $cartService;
+
+    public function __construct(CartService $cartService)
     {
-        $cart = $request->session()->get('cart', []);
+        $this->cartService = $cartService;
+    }
+
+    public function index(): Response
+    {
+        // Panggil getCart dari service agar data disinkronkan dengan DB
+        // (Harga terupdate, Stok terupdate)
+        $cart = $this->cartService->getCart();
         
         return Inertia::render('Cart/Index', [
             'cart' => $cart
         ]);
     }
 
-    /**
-     * Menyimpan item ke keranjang
-     */
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'variant_id' => 'required|exists:product_variants,id',
+            'variant_id' => 'required|integer',
             'quantity' => 'required|integer|min:1',
         ]);
 
-        $variant = ProductVariant::with('product')->find($request->variant_id);
-        $cart = $request->session()->get('cart', []);
+        try {
+            $this->cartService->addToCart(
+                $request->variant_id, 
+                $request->quantity
+            );
+            return back()->with('toast_success', 'Berhasil ditambahkan ke keranjang.');
 
-        if (isset($cart[$variant->id])) {
-            $cart[$variant->id]['quantity'] += $request->quantity;
-        } else {
-            $cart[$variant->id] = [
-                'name' => $variant->product->name . ' (' . $variant->volume . ')', 
-                'quantity' => (int)$request->quantity,
-                'price' => $variant->price,
-                'image_url' => $variant->product->image_url, 
-                'product_slug' => $variant->product->slug,
-                'product_id' => $variant->product->id,
-                'variant_id' => $variant->id,
-            ];
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withErrors($e->errors())->with('toast_error', $e->getMessage());
         }
-
-        $request->session()->put('cart', $cart);
-
-        return redirect()->back()->with('toast_success', 'Product successfully added to cart!');
     }
 
-    /**
-     * Update kuantitas
-     */
     public function update(Request $request, $variantId): RedirectResponse
     {
         $request->validate([
             'quantity' => 'required|integer|min:1',
         ]);
 
-        $cart = $request->session()->get('cart', []);
-
-        if (isset($cart[$variantId])) {
-            $cart[$variantId]['quantity'] = (int)$request->quantity;
-            $request->session()->put('cart', $cart);
+        try {
+            $this->cartService->updateQuantity($variantId, $request->quantity);
+            return back()->with('toast_success', 'Keranjang diperbarui.');
+            
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->with('toast_error', 'Stok tidak mencukupi.');
         }
-
-        return redirect()->back()->with('toast_success', 'Cart updated successfully!');
     }
 
-    /**
-     * Menghapus item dari keranjang
-     */
-    public function destroy(Request $request, $variantId): RedirectResponse
+    public function destroy($variantId): RedirectResponse
     {
-        $cart = $request->session()->get('cart', []);
-
-        if (isset($cart[$variantId])) {
-            unset($cart[$variantId]);
-            $request->session()->put('cart', $cart);
-        }
-
-        return redirect()->back()->with('toast_success', 'Item removed from cart.');
+        $this->cartService->removeFromCart($variantId);
+        return back()->with('toast_success', 'Item dihapus dari keranjang.');
     }
 }

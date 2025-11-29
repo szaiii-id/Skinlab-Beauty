@@ -2,53 +2,35 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Order;
-use App\Models\Product;
-use App\Models\Review;
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreReviewRequest;
+use App\Services\ReviewService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 
 class ReviewController extends Controller
 {
-    public function store(Request $request)
+    protected ReviewService $reviewService;
+
+    // Inject ReviewService only
+    public function __construct(ReviewService $reviewService)
     {
-        $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'order_id'   => 'required|exists:orders,id',
-            'rating'     => 'required|integer|min:1|max:5',
-            'comment'    => 'nullable|string|max:500',
-        ]);
+        $this->reviewService = $reviewService;
+    }
 
-        $user = Auth::user();
+    /**
+     * Store a newly created review in storage.
+     */
+    public function store(StoreReviewRequest $request): RedirectResponse
+    {
+        try {
+            // Delegate logic to Service
+            $this->reviewService->submitReview(Auth::user(), $request->validated());
 
-        // 1. Validasi Keamanan: Pastikan Order ini milik User yang login
-        $order = Order::where('id', $request->order_id)
-                      ->where('user_id', $user->id)
-                      ->where('order_status', 'completed') // Hanya order selesai
-                      ->firstOrFail();
+            return back()->with('toast_success', 'Review submitted! Points added to your account.');
 
-        // 2. Cek Duplikasi: Apakah sudah pernah review barang ini di order ini?
-        $exists = Review::where('user_id', $user->id)
-                        ->where('order_id', $request->order_id)
-                        ->where('product_id', $request->product_id)
-                        ->exists();
-
-        if ($exists) {
-            return back()->withErrors(['message' => 'Anda sudah mengulas produk ini.']);
+        } catch (\Exception $e) {
+            // Handle Business Logic Errors (Duplicate, Not Completed, etc)
+            return back()->with('toast_error', $e->getMessage());
         }
-
-        // 3. Simpan Review
-        Review::create([
-            'user_id'    => $user->id,
-            'product_id' => $request->product_id,
-            'order_id'   => $request->order_id,
-            'rating'     => $request->rating,
-            'comment'    => $request->comment
-        ]);
-
-        // --- TODO NANTI: LOGIC TAMBAH POIN DISINI ---
-        // (Nanti kita akan panggil PointService di sini setelah fitur rewards jadi)
-        
-        return back()->with('success', 'Terima kasih atas ulasan Anda!');
     }
 }

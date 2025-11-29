@@ -87,14 +87,7 @@ class ProductPageController extends Controller
     {
         try {
             $query = $request->input('q');
-            
-        //     return Inertia::render('Catalog/Index', [
-        //     'products' => ProductResource::collection(
-        //         $this->productService->getAllProducts()
-        //     ),
-        //     'filterTitle' => null
-        // ]);
-            
+                        
             $products = $this->productService->searchProducts($query);
 
             return Inertia::render('Catalog/Index', [

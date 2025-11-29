@@ -3,8 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
-use App\Models\PointTransaction; // Import Model Transaksi Poin
-use App\Services\PointService;   // Import Service Poin
+use App\Services\OrderService;
 use Illuminate\Http\Request;
 use Midtrans\Config;
 use Midtrans\Notification;
@@ -12,106 +11,86 @@ use Illuminate\Support\Facades\Log;
 
 class PaymentCallbackController extends Controller
 {
-    protected $pointService;
+    protected OrderService $orderService;
 
-    // Inject PointService agar bisa dipakai
-    public function __construct(PointService $pointService)
+    /**
+     * Inject OrderService.
+     * The controller delegates all business logic (Points, Stock, etc.) to this service.
+     */
+    public function __construct(OrderService $orderService)
     {
-        $this->pointService = $pointService;
+        $this->orderService = $orderService;
     }
 
+    /**
+     * Handle Incoming Webhook from Midtrans
+     */
     public function handle(Request $request)
     {
-        // 1. Konfigurasi
+        // 1. Setup Midtrans Configuration
         Config::$serverKey = config('midtrans.server_key');
         Config::$isProduction = config('midtrans.is_production');
         Config::$isSanitized = config('midtrans.is_sanitized');
         Config::$is3ds = config('midtrans.is_3ds');
 
         try {
-            $notif = new Notification();
+            // 2. Parse Notification Instance
+            $notification = new Notification();
         } catch (\Exception $e) {
-            return response(['message' => 'Invalid notification'], 400);
+            Log::error("Midtrans Notification Error: " . $e->getMessage());
+            return response(['message' => 'Invalid notification signature'], 400);
         }
 
-        $transaction = $notif->transaction_status;
-        $type = $notif->payment_type;
-        $orderId = $notif->order_id;
-        $fraud = $notif->fraud_status;
+        // 3. Extract Data
+        $status = $notification->transaction_status;
+        $type = $notification->payment_type;
+        $orderId = $notification->order_id;
+        $fraud = $notification->fraud_status;
 
-        // 2. Cari Order (Eager load user untuk poin)
-        $order = Order::with('user')->where('order_number', $orderId)->first();
+        // 4. Find Order
+        // We use eager loading 'items.productVariant' because if payment failed, 
+        // the Service needs this data to restore stock.
+        $order = Order::with(['items.productVariant', 'user'])
+            ->where('order_number', $orderId)
+            ->first();
 
         if (!$order) {
+            Log::warning("Callback received for unknown Order ID: {$orderId}");
             return response(['message' => 'Order not found'], 404);
         }
 
-        // 3. Update Status & Inject Poin
-        if ($transaction == 'capture') {
-            if ($type == 'credit_card') {
-                if ($fraud == 'challenge') {
-                    $order->update(['payment_status' => 'pending']);
-                } else {
-                    $order->update(['payment_status' => 'paid', 'order_status' => 'processing']);
-                    // BERI POIN (Kartu Kredit Sukses)
-                    $this->grantPoints($order);
-                }
-            }
-        } else if ($transaction == 'settlement') {
-            // BERI POIN (Transfer/Gopay Sukses)
-            $order->update(['payment_status' => 'paid', 'order_status' => 'processing']);
-            $this->grantPoints($order);
-            
-        } else if ($transaction == 'pending') {
-            $order->update(['payment_status' => 'pending']);
-        } else if ($transaction == 'deny') {
-            $order->update(['payment_status' => 'failed', 'order_status' => 'cancelled']);
-        } else if ($transaction == 'expire') {
-            $order->update(['payment_status' => 'expired', 'order_status' => 'cancelled']);
-        } else if ($transaction == 'cancel') {
-            $order->update(['payment_status' => 'cancelled', 'order_status' => 'cancelled']);
-        }
+        Log::info("Midtrans Callback: Order #{$orderId} Status: [{$status}]");
 
-        return response(['message' => 'OK']);
-    }
-
-    /**
-     * Logic Khusus Menghitung & Memberikan Poin
-     */
-    private function grantPoints(Order $order)
-    {
         try {
-            // A. Cek Duplikasi (PENTING!)
-            // Jangan sampai midtrans kirim notif 2x, user dapat poin 2x.
-            // Kita cek apakah sudah ada transaksi poin dengan deskripsi order ini.
-            $exists = PointTransaction::where('user_id', $order->user_id)
-                ->where('source_type', 'purchase')
-                ->where('description', 'LIKE', "%{$order->order_number}%")
-                ->exists();
-
-            if ($exists) {
-                return; // Stop jika sudah pernah dapat
+            // 5. Determine Logic based on Status
+            if ($status == 'capture') {
+                if ($type == 'credit_card') {
+                    if ($fraud == 'challenge') {
+                        $order->update(['payment_status' => 'pending']);
+                    } else {
+                        // SUCCESS: Credit Card
+                        $this->orderService->processPaymentSuccess($order);
+                    }
+                }
+            } 
+            elseif ($status == 'settlement') {
+                // SUCCESS: Bank Transfer, GoPay, QRIS, etc.
+                $this->orderService->processPaymentSuccess($order);
+            } 
+            elseif ($status == 'pending') {
+                // PENDING: Waiting for payment
+                $order->update(['payment_status' => 'pending']);
+            } 
+            elseif ($status == 'deny' || $status == 'expire' || $status == 'cancel') {
+                // FAILED: Payment failed or expired
+                $this->orderService->processPaymentFailure($order);
             }
 
-            // B. Hitung Poin (Rule: Rp 10.000 = 1 Poin)
-            // Dihitung dari SUBTOTAL (Harga Barang), bukan Total (yang ada ongkir)
-            // Gunakan floor (pembulatan ke bawah)
-            $points = (int) floor($order->subtotal / 10000);
-
-            // C. Masukkan ke Service jika poin > 0
-            if ($points > 0) {
-                $this->pointService->addPoints(
-                    $order->user,
-                    $points,
-                    'purchase', // Source type
-                    "Bonus Belanja Order #{$order->order_number}" // Description
-                );
-                
-                Log::info("Points granted to User {$order->user_id}: {$points} pts for Order {$order->order_number}");
-            }
+            return response(['message' => 'OK']);
 
         } catch (\Exception $e) {
-            Log::error("Failed granting points for Order {$order->order_number}: " . $e->getMessage());
+            Log::error("Error processing callback for Order #{$orderId}: " . $e->getMessage());
+            return response(['message' => 'Internal Server Error'], 500);
         }
     }
 }

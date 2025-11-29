@@ -2,68 +2,55 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Reward;
-use App\Models\UserReward;
-use App\Models\PointTransaction;
-use App\Services\PointService;
+use App\Services\RewardService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Inertia\Response;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 
 class RewardController extends Controller
 {
-    protected $pointService;
+    protected RewardService $rewardService;
 
-    public function __construct(PointService $pointService)
+    // Inject RewardService
+    public function __construct(RewardService $rewardService)
     {
-        $this->pointService = $pointService;
+        $this->rewardService = $rewardService;
     }
 
-    public function index()
+    /**
+     * Display Rewards Page
+     */
+    public function index(): Response
     {
         $user = Auth::user();
 
+        // Fetch data via Service
+        $catalog = $this->rewardService->getCatalog();
+        $myVouchers = $this->rewardService->getUserVouchers($user->id);
+        $history = $this->rewardService->getPointHistory($user->id);
+
         return Inertia::render('Rewards/Index', [
             'points' => $user->current_points,
-            
-            // Katalog Hadiah
-            'rewards' => Reward::where('is_active', true)
-                ->where('stock', '>', 0)
-                ->get(),
-            
-            // Voucher Saya (Belum Dipakai)
-            'my_vouchers' => UserReward::with('reward')
-                ->where('user_id', $user->id)
-                ->where('is_used', false)
-                ->latest()
-                ->get(),
-            
-            // History Transaksi Poin
-            'history' => PointTransaction::where('user_id', $user->id)
-                ->latest()
-                ->limit(10)
-                ->get()
-                ->map(function ($t) {
-                    return [
-                        'id' => $t->id,
-                        'amount' => $t->amount,
-                        'description' => $t->description,
-                        'date' => $t->created_at->format('d M Y'),
-                        'is_positive' => $t->amount > 0
-                    ];
-                })
+            'rewards' => $catalog,
+            'my_vouchers' => $myVouchers,
+            'history' => $history
         ]);
     }
 
-    public function redeem(Request $request, $id)
+    /**
+     * Process Redemption
+     */
+    public function redeem(Request $request, $id): RedirectResponse
     {
         try {
-            $reward = Reward::findOrFail($id);
-            $this->pointService->redeemReward(Auth::user(), $reward);
+            $this->rewardService->redeemReward(Auth::user(), (int) $id);
             
-            return redirect()->back()->with('success', 'Berhasil! Voucher baru ditambahkan.');
+            return redirect()->back()->with('toast_success', 'Redemption successful! Voucher added.');
+
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', $e->getMessage());
+            return redirect()->back()->with('toast_error', $e->getMessage());
         }
     }
 }
