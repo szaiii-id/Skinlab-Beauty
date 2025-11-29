@@ -10,7 +10,8 @@ import {
     Save, 
     Trash2,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    X
 } from 'lucide-vue-next';
 
 defineOptions({ layout: DashboardLayout });
@@ -80,15 +81,15 @@ const closeModal = () => {
 </script>
 
 <template>
-    <Head title="Profil Saya" />
+    <Head title="My Profile" />
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-gray-800">
         
         <div class="mb-8">
             <h1 class="text-2xl font-light text-gray-900">
-                Pengaturan <span class="font-semibold text-rose-600">Profil</span>
+                Account <span class="font-bold text-rose-600">Settings</span>
             </h1>
-            <p class="text-gray-500 text-sm mt-1">Kelola informasi akun, alamat, dan keamanan Anda.</p>
+            <p class="text-gray-500 text-sm mt-1">Manage your account information, addresses, and security.</p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -101,40 +102,42 @@ const closeModal = () => {
                             <User class="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 class="text-lg font-bold text-gray-900">Informasi Pribadi</h2>
-                            <p class="text-xs text-gray-500">Update nama tampilan Anda.</p>
+                            <h2 class="text-lg font-bold text-gray-900">Personal Information</h2>
+                            <p class="text-xs text-gray-500">Update your display name and contact details.</p>
                         </div>
                     </div>
 
                     <form @submit.prevent="updateProfileInformation" class="space-y-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
                             <div class="relative">
-                                <User class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
+                                <User class="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                                 <input 
                                     v-model="formInfo.name"
                                     type="text" 
-                                    class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-colors bg-white text-gray-900 placeholder-gray-400"
+                                    class="w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none transition-all"
+                                    :class="formInfo.errors.name ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200' : 'border-gray-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-100'"
+                                    placeholder="Enter your full name"
                                     required
                                 >
                             </div>
-                            <p v-if="formInfo.errors.name" class="text-xs text-red-600 mt-1">{{ formInfo.errors.name }}</p>
+                            <p v-if="formInfo.errors.name" class="text-xs text-red-600 mt-1 font-medium">{{ formInfo.errors.name }}</p>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Alamat Email</label>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
                             <div class="relative">
-                                <Mail class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
+                                <Mail class="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                                 <input 
                                     v-model="formInfo.email"
                                     type="email" 
                                     disabled
-                                    class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed focus:ring-0 transition-colors"
+                                    class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed focus:ring-0 transition-colors"
                                 >
                             </div>
                             <div class="mt-2 flex items-start gap-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100">
                                 <AlertCircle class="w-4 h-4 text-gray-400 shrink-0" />
-                                <p>Email terdaftar tidak dapat diubah demi keamanan akun.</p>
+                                <p>Email cannot be changed for security reasons.</p>
                             </div>
                         </div>
 
@@ -142,10 +145,10 @@ const closeModal = () => {
                             <button 
                                 :disabled="formInfo.processing"
                                 type="submit" 
-                                class="flex items-center gap-2 bg-rose-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-rose-700 transition disabled:opacity-50"
+                                class="flex items-center gap-2 bg-rose-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-rose-200 hover:bg-rose-700 hover:shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:scale-100"
                             >
                                 <Save class="w-4 h-4" />
-                                <span>Simpan Perubahan</span>
+                                <span>{{ formInfo.processing ? 'Saving...' : 'Save Changes' }}</span>
                             </button>
                             
                             <Transition
@@ -154,8 +157,8 @@ const closeModal = () => {
                                 leave-active-class="transition ease-in-out"
                                 leave-to-class="opacity-0"
                             >
-                                <p v-if="formInfo.recentlySuccessful" class="text-sm text-green-600 flex items-center gap-1 font-medium">
-                                    <CheckCircle2 class="w-4 h-4" /> Tersimpan.
+                                <p v-if="formInfo.recentlySuccessful" class="text-sm text-green-600 flex items-center gap-1 font-bold bg-green-50 px-3 py-1 rounded-full border border-green-100">
+                                    <CheckCircle2 class="w-4 h-4" /> Saved.
                                 </p>
                             </Transition>
                         </div>
@@ -170,34 +173,63 @@ const closeModal = () => {
                             <Lock class="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 class="text-lg font-bold text-gray-900">Ubah Password</h2>
-                            <p class="text-xs text-gray-500">Amankan akun Anda dengan password yang kuat.</p>
+                            <h2 class="text-lg font-bold text-gray-900">Change Password</h2>
+                            <p class="text-xs text-gray-500">Ensure your account is using a long, random password.</p>
                         </div>
                     </div>
 
-                    <form @submit.prevent="updatePassword" class="space-y-4">
+                    <form @submit.prevent="updatePassword" class="space-y-5">
+                        
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Password Saat Ini</label>
-                            <input v-model="formPassword.current_password" type="password" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-colors bg-white text-gray-900 placeholder-gray-400">
-                            <p v-if="formPassword.errors.current_password" class="text-xs text-red-600 mt-1">{{ formPassword.errors.current_password }}</p>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Current Password</label>
+                            <input 
+                                v-model="formPassword.current_password" 
+                                type="password" 
+                                class="w-full px-4 py-2.5 border rounded-lg focus:outline-none transition-all"
+                                :class="formPassword.errors.current_password ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200' : 'border-gray-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-100'"
+                                placeholder="Enter current password"
+                            >
+                            <p v-if="formPassword.errors.current_password" class="text-xs text-red-600 mt-1 font-medium">{{ formPassword.errors.current_password }}</p>
                         </div>
+
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Password Baru</label>
-                            <input v-model="formPassword.password" type="password" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-colors bg-white text-gray-900 placeholder-gray-400">
-                            <p v-if="formPassword.errors.password" class="text-xs text-red-600 mt-1">{{ formPassword.errors.password }}</p>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">New Password</label>
+                            <input 
+                                v-model="formPassword.password" 
+                                type="password" 
+                                class="w-full px-4 py-2.5 border rounded-lg focus:outline-none transition-all"
+                                :class="formPassword.errors.password ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200' : 'border-gray-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-100'"
+                                placeholder="Enter new password"
+                            >
+                            <p v-if="formPassword.errors.password" class="text-xs text-red-600 mt-1 font-medium">{{ formPassword.errors.password }}</p>
                         </div>
+
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Konfirmasi Password</label>
-                            <input v-model="formPassword.password_confirmation" type="password" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-colors bg-white text-gray-900 placeholder-gray-400">
-                            <p v-if="formPassword.errors.password_confirmation" class="text-xs text-red-600 mt-1">{{ formPassword.errors.password_confirmation }}</p>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Confirm Password</label>
+                            <input 
+                                v-model="formPassword.password_confirmation" 
+                                type="password" 
+                                class="w-full px-4 py-2.5 border rounded-lg focus:outline-none transition-all"
+                                :class="formPassword.errors.password_confirmation ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200' : 'border-gray-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-100'"
+                                placeholder="Retype new password"
+                            >
+                            <p v-if="formPassword.errors.password_confirmation" class="text-xs text-red-600 mt-1 font-medium">{{ formPassword.errors.password_confirmation }}</p>
                         </div>
 
                         <div class="pt-2">
-                            <button :disabled="formPassword.processing" type="submit" class="flex items-center gap-2 bg-gray-800 text-white px-5 py-2 rounded-lg shadow hover:bg-gray-900 transition disabled:opacity-50">
-                                <Save class="w-4 h-4" /> <span>Update Password</span>
+                            <button 
+                                :disabled="formPassword.processing" 
+                                type="submit" 
+                                class="flex items-center gap-2 bg-gray-900 text-white px-6 py-2.5 rounded-xl font-bold shadow-md hover:bg-black transition-all hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:scale-100"
+                            >
+                                <Save class="w-4 h-4" /> 
+                                <span>{{ formPassword.processing ? 'Updating...' : 'Update Password' }}</span>
                             </button>
+                            
                             <Transition enter-active-class="transition ease-in-out" enter-from-class="opacity-0" leave-active-class="transition ease-in-out" leave-to-class="opacity-0">
-                                <p v-if="formPassword.recentlySuccessful" class="text-sm text-green-600 mt-2 font-medium">Password berhasil diperbarui.</p>
+                                <p v-if="formPassword.recentlySuccessful" class="text-sm text-green-600 mt-3 font-bold flex items-center gap-1">
+                                    <CheckCircle2 class="w-4 h-4"/> Password updated successfully.
+                                </p>
                             </Transition>
                         </div>
                     </form>
@@ -210,31 +242,62 @@ const closeModal = () => {
                         <div class="p-2 bg-red-100 text-red-600 rounded-lg">
                             <Trash2 class="w-5 h-5" />
                         </div>
-                        <h2 class="text-lg font-bold text-red-800">Hapus Akun</h2>
+                        <h2 class="text-lg font-bold text-red-800">Delete Account</h2>
                     </div>
                     
-                    <p class="text-sm text-red-600 mb-6 leading-relaxed">
-                        Setelah akun dihapus, semua data riwayat pesanan, poin, dan analisis kulit akan hilang permanen.
+                    <p class="text-sm text-red-600/80 mb-6 leading-relaxed">
+                        Once your account is deleted, all of its resources and data will be permanently deleted.
                     </p>
 
-                    <button @click="confirmUserDeletion" class="w-full bg-white border border-red-200 text-red-600 px-4 py-2 rounded-lg hover:bg-red-600 hover:text-white transition font-medium text-sm shadow-sm">
-                        Hapus Akun Saya
+                    <button 
+                        @click="confirmUserDeletion" 
+                        class="w-full bg-white border border-red-200 text-red-600 px-4 py-3 rounded-xl hover:bg-red-600 hover:text-white transition-all font-bold text-sm shadow-sm"
+                    >
+                        Delete My Account
                     </button>
                 </div>
             </div>
         </div>
 
-        <div v-if="confirmingUserDeletion" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 animate-fade-in-up">
-                <h2 class="text-lg font-bold text-gray-900 mb-2">Apakah Anda yakin?</h2>
-                <p class="text-sm text-gray-500 mb-6">Masukkan password Anda untuk mengonfirmasi penghapusan akun.</p>
-                <div class="mb-6">
-                    <input ref="passwordInput" v-model="formDelete.password" type="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-900" placeholder="Password" @keyup.enter="deleteUser" />
-                    <p v-if="formDelete.errors.password" class="text-xs text-red-600 mt-1">{{ formDelete.errors.password }}</p>
+        <div v-if="confirmingUserDeletion" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all" @click.self="closeModal">
+            <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 animate-fade-in-up border border-gray-100">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-lg font-bold text-gray-900">Are you sure?</h2>
+                    <button @click="closeModal" class="text-gray-400 hover:text-gray-600"><X class="w-5 h-5"/></button>
                 </div>
+                
+                <p class="text-sm text-gray-500 mb-6 leading-relaxed">
+                    Please enter your password to confirm you would like to permanently delete your account. This action cannot be undone.
+                </p>
+                
+                <div class="mb-6">
+                    <input 
+                        ref="passwordInput" 
+                        v-model="formDelete.password" 
+                        type="password" 
+                        class="w-full px-4 py-3 border rounded-xl focus:outline-none transition-all text-gray-900 placeholder-gray-400"
+                        :class="formDelete.errors.password ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-200' : 'border-gray-300 focus:border-red-500 focus:ring-2 focus:ring-red-100'"
+                        placeholder="Enter your password" 
+                        @keyup.enter="deleteUser" 
+                    />
+                    <p v-if="formDelete.errors.password" class="text-xs text-red-600 mt-2 font-bold">{{ formDelete.errors.password }}</p>
+                </div>
+                
                 <div class="flex justify-end gap-3">
-                    <button @click="closeModal" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">Batal</button>
-                    <button @click="deleteUser" :disabled="formDelete.processing" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium shadow-md">Hapus Akun</button>
+                    <button 
+                        @click="closeModal" 
+                        class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition text-sm font-bold"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        @click="deleteUser" 
+                        :disabled="formDelete.processing" 
+                        class="px-5 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition text-sm font-bold shadow-lg shadow-red-200 disabled:opacity-50 flex items-center gap-2"
+                    >
+                        <span v-if="formDelete.processing">Deleting...</span>
+                        <span v-else>Delete Account</span>
+                    </button>
                 </div>
             </div>
         </div>

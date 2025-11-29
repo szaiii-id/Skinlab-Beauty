@@ -80,12 +80,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // skincare routine
     Route::get('/my-routine', [SkincareRoutineController::class, 'index'])->name('routine.index');
-    Route::post('/my-routine', [SkincareRoutineController::class, 'store'])->name('routine.store');
-    Route::put('/my-routine/{id}', [SkincareRoutineController::class, 'update'])->name('routine.update');
-    Route::post('/my-routine/{id}/toggle', [SkincareRoutineController::class, 'toggleCheck'])->name('routine.toggle');
-    Route::delete('/my-routine/{id}', [SkincareRoutineController::class, 'destroy'])->name('routine.destroy');
-        Route::delete('/my-routine/{id}/group', [SkincareRoutineController::class, 'destroyGroup'])->name('routine.destroy-group');
-    
+    Route::post('/routine', [SkincareRoutineController::class, 'store'])->name('routine.store');
+    Route::put('/routine/{id}', [SkincareRoutineController::class, 'update'])->name('routine.update');
+    Route::post('/routine/{id}/toggle', [SkincareRoutineController::class, 'toggleCheck'])->name('routine.toggle');
+    Route::delete('/routine/{id}', [SkincareRoutineController::class, 'destroy'])->name('routine.destroy');
+    Route::delete('/routine/group/{id}', [SkincareRoutineController::class, 'destroyGroup'])->name('routine.destroy-group');
     // rewards
     Route::get('/rewards', [RewardController::class, 'index'])->name('rewards.index');
     Route::post('/rewards/{id}/redeem', [RewardController::class, 'redeem'])->name('rewards.redeem');

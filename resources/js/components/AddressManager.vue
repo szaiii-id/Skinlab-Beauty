@@ -1,332 +1,215 @@
+<script setup>
+import { ref, onMounted, computed } from 'vue';
+import { MapPin, Plus, Check, X, Edit, Trash2 } from 'lucide-vue-next';
+import axios from 'axios';
+import Swal from 'sweetalert2';
+import AddressFormModal from './AddressFormModal.vue';
+
+const emit = defineEmits(['address-selected']);
+
+// State
+const addresses = ref([]);
+const selectedId = ref(null);
+const isSelectorOpen = ref(false); // Untuk Modal Selector
+const isFormOpen = ref(false);     // Untuk Modal Form (Create/Edit)
+const editingAddress = ref(null);  // Data alamat yang sedang diedit
+const isLoading = ref(false);
+
+// Load Data
+const loadAddresses = async () => {
+    isLoading.value = true;
+    try {
+        const response = await axios.get('/api/addresses');
+        addresses.value = response.data.data;
+        
+        // Auto-select logic
+        if (!selectedId.value && addresses.value.length > 0) {
+            const defaultAddr = addresses.value.find(a => a.is_default);
+            selectedId.value = defaultAddr ? defaultAddr.id : addresses.value[0].id;
+            emitSelection();
+        }
+    } catch (error) {
+        console.error("Load error:", error);
+    } finally {
+        isLoading.value = false;
+    }
+};
+
+const emitSelection = () => {
+    const addr = addresses.value.find(a => a.id === selectedId.value);
+    if (addr) emit('address-selected', addr);
+};
+
+const selectAddress = (id) => {
+    selectedId.value = id;
+    emitSelection();
+    isSelectorOpen.value = false;
+};
+
+// Form Handlers
+const openCreateForm = () => {
+    editingAddress.value = null;
+    isFormOpen.value = true;
+};
+
+const openEditForm = (addr) => {
+    editingAddress.value = addr;
+    isFormOpen.value = true;
+};
+
+const handleSaved = () => {
+    loadAddresses(); // Refresh list after save
+    isFormOpen.value = false;
+};
+
+// Delete Handler
+const deleteAddress = (id) => {
+    Swal.fire({
+        title: 'Delete Address?',
+        text: "You won't be able to revert this!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, delete it!'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                await axios.delete(`/api/addresses/${id}`);
+                await loadAddresses();
+                Swal.fire('Deleted!', 'Address has been deleted.', 'success');
+            } catch (e) {
+                Swal.fire('Error', 'Failed to delete address.', 'error');
+            }
+        }
+    });
+};
+
+const activeAddress = computed(() => addresses.value.find(a => a.id === selectedId.value));
+
+onMounted(() => {
+    loadAddresses();
+});
+</script>
+
 <template>
-    <div class="address-manager">
-        <!-- Error Message -->
-        <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-red-800">{{ error }}</p>
-        </div>
-
-        <!-- Loading State -->
-        <div v-if="loading" class="text-center py-8">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-600 mx-auto"></div>
-            <p class="text-gray-600 mt-2">Loading addresses...</p>
-        </div>
-
-        <!-- Default Address Display -->
-        <div v-else-if="defaultAddress" class="space-y-4">
-            <!-- Selected Address Display -->
-            <div class="border border-rose-500 bg-rose-50 rounded-lg p-4 shadow-sm">
-                <div class="flex justify-between items-start">
-                    <div class="flex-1">
-                        <div class="flex items-center space-x-2 mb-2">
-                            <h4 class="font-semibold text-gray-900">{{ defaultAddress.receiver_name }}</h4>
-                            <span class="px-2 py-1 bg-rose-100 text-rose-800 text-xs font-medium rounded-full">
-                                Default
-                            </span>
-                            <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full capitalize">
-                                {{ defaultAddress.type }}
-                            </span>
-                        </div>
-                        
-                        <p class="text-gray-600 text-sm mb-1 flex items-center">
-                            <span class="mr-2">📞</span>
-                            {{ defaultAddress.phone_number }}
-                        </p>
-                        
-                        <p class="text-gray-600 text-sm mb-2 leading-relaxed">
-                            {{ defaultAddress.full_address }}, 
-                            <span v-if="defaultAddress.district">{{ defaultAddress.district.name }}, </span>
-                            {{ defaultAddress.city.name }}, 
-                            {{ defaultAddress.province.name }} - 
-                            {{ defaultAddress.postal_code }}
-                        </p>
+    <div>
+        <!-- 1. WIDGET UTAMA (Tampil di Checkout) -->
+        <div v-if="activeAddress" 
+             class="border border-rose-200 bg-rose-50/40 rounded-xl p-5 flex justify-between items-start group hover:border-rose-300 transition-all cursor-pointer shadow-sm hover:shadow-md"
+             @click="isSelectorOpen = true">
+            
+            <div class="flex gap-4">
+                <div class="mt-1 w-10 h-10 rounded-full bg-white flex items-center justify-center text-rose-500 shadow-sm border border-rose-100">
+                    <MapPin class="w-5 h-5" />
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <p class="font-bold text-gray-900">{{ activeAddress.receiver_name }}</p>
+                        <span v-if="activeAddress.is_default" class="bg-rose-100 text-rose-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Default</span>
+                        <span class="bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">{{ activeAddress.type }}</span>
                     </div>
-                    
-                    <div class="flex space-x-2 ml-4">
-                        <button
-                            @click="openEditForm(defaultAddress)"
-                            class="px-3 py-1 text-blue-600 hover:text-blue-800 text-sm font-medium border border-blue-200 rounded hover:bg-blue-50 transition-colors"
-                        >
-                            Edit
-                        </button>
-                    </div>
+                    <p class="text-gray-600 text-sm mt-1 font-medium">{{ activeAddress.phone_number }}</p>
+                    <p class="text-gray-500 text-sm mt-1 leading-relaxed line-clamp-2">
+                        {{ activeAddress.full_address }}, {{ activeAddress.district?.name }}, {{ activeAddress.city?.name }}, {{ activeAddress.province?.name }} {{ activeAddress.postal_code }}
+                    </p>
                 </div>
             </div>
-
-            <!-- Change Address Button -->
-            <div class="flex justify-between items-center">
-                <button
-                    @click="openAddressSelector"
-                    class="text-rose-600 hover:text-rose-700 font-medium flex items-center space-x-2"
-                >
-                    <span>🔄</span>
-                    <span>Change Address</span>
-                </button>
-
-                <button
-                    @click="openCreateForm"
-                    class="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors flex items-center space-x-2"
-                >
-                    <span>+</span>
-                    <span>Add New Address</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Empty State -->
-        <div v-else class="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
-            <div class="text-gray-400 mb-3">
-                <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                </svg>
-            </div>
-            <p class="text-gray-500 mb-4">No addresses saved yet</p>
-            <button
-                @click="openCreateForm"
-                class="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors"
-            >
-                Add First Address
+            
+            <button class="text-xs font-bold text-rose-600 bg-white px-4 py-2 rounded-lg border border-rose-200 shadow-sm hover:bg-rose-50 transition-colors">
+                Change
             </button>
         </div>
 
-        <!-- Address Selector Modal -->
-        <div v-if="showAddressSelector" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div class="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-                <div class="p-6 border-b border-gray-200">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-lg font-semibold text-gray-900">Select Delivery Address</h3>
-                        <button @click="closeAddressSelector" class="text-gray-400 hover:text-gray-600">
-                            ✕
-                        </button>
-                    </div>
+        <!-- Empty State (No Address) -->
+        <div v-else class="text-center p-8 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-rose-50/30 hover:border-rose-300 transition-all cursor-pointer group" @click="openCreateForm">
+            <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm group-hover:scale-110 transition-transform">
+                <Plus class="w-6 h-6 text-gray-400 group-hover:text-rose-500" />
+            </div>
+            <p class="text-gray-900 font-bold">No Address Selected</p>
+            <p class="text-gray-500 text-sm">Click here to add a new shipping address</p>
+        </div>
+
+        <!-- 2. SELECTOR MODAL (Glassmorphism) -->
+        <div v-if="isSelectorOpen" class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-white/80 backdrop-blur-sm transition-opacity" @click="isSelectorOpen = false"></div>
+
+            <!-- Content -->
+            <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+                
+                <!-- Header -->
+                <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-gray-50 to-white rounded-t-2xl">
+                    <h3 class="text-lg font-bold text-gray-900">Select Address</h3>
+                    <button @click="isSelectorOpen = false" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors">
+                        <X class="w-5 h-5" />
+                    </button>
                 </div>
 
-                <div class="p-6 space-y-4">
-                    <div
-                        v-for="address in addresses"
-                        :key="address.id"
-                        class="border rounded-lg p-4 transition-all duration-200 cursor-pointer"
-                        :class="address.id === selectedAddressId 
-                            ? 'border-rose-500 bg-rose-50 shadow-sm' 
-                            : 'border-gray-200 hover:border-rose-300 hover:shadow-sm'
-                        "
-                        @click="selectAddressInModal(address)"
-                    >
-                        <div class="flex justify-between items-start">
-                            <div class="flex-1">
-                                <div class="flex items-center space-x-2 mb-2">
-                                    <h4 class="font-semibold text-gray-900">{{ address.receiver_name }}</h4>
-                                    <span
-                                        v-if="address.is_default"
-                                        class="px-2 py-1 bg-rose-100 text-rose-800 text-xs font-medium rounded-full"
-                                    >
-                                        Default
-                                    </span>
-                                    <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full capitalize">
-                                        {{ address.type }}
-                                    </span>
-                                </div>
-                                
-                                <p class="text-gray-600 text-sm mb-1 flex items-center">
-                                    <span class="mr-2">📞</span>
-                                    {{ address.phone_number }}
-                                </p>
-                                
-                                <p class="text-gray-600 text-sm mb-2 leading-relaxed">
-                                    {{ address.full_address }}, 
-                                    <span v-if="address.district">{{ address.district.name }}, </span>
-                                    {{ address.city.name }}, 
-                                    {{ address.province.name }} - 
-                                    {{ address.postal_code }}
-                                </p>
+                <!-- List -->
+                <div class="flex-1 overflow-y-auto p-5 space-y-3 bg-gray-50/50 custom-scrollbar">
+                    <div v-if="isLoading" class="text-center py-8">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-600 mx-auto mb-2"></div>
+                        <p class="text-gray-500 text-xs">Loading addresses...</p>
+                    </div>
+
+                    <div v-else v-for="addr in addresses" :key="addr.id" 
+                         class="relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 group bg-white"
+                         :class="selectedId === addr.id 
+                            ? 'border-rose-500 shadow-md ring-1 ring-rose-500' 
+                            : 'border-transparent hover:border-rose-200 shadow-sm hover:shadow-md'"
+                         @click="selectAddress(addr.id)">
+                        
+                        <!-- Checkmark -->
+                        <div v-if="selectedId === addr.id" class="absolute top-4 right-4 text-rose-600 bg-rose-100 rounded-full p-1">
+                            <Check class="w-4 h-4" />
+                        </div>
+
+                        <!-- Actions (Edit/Delete) -->
+                        <div class="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button @click.stop="openEditForm(addr)" class="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Edit">
+                                <Edit class="w-4 h-4" />
+                            </button>
+                            <button @click.stop="deleteAddress(addr.id)" class="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Delete">
+                                <Trash2 class="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="pr-10">
+                            <div class="flex items-center gap-2 mb-1">
+                                <p class="font-bold text-gray-900 text-sm">{{ addr.receiver_name }}</p>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-600 uppercase">{{ addr.type }}</span>
+                                <span v-if="addr.is_default" class="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-600 uppercase">Default</span>
                             </div>
-                            
-                            <div class="flex space-x-2 ml-4">
-                                <button
-                                    @click.stop="openEditForm(address)"
-                                    class="px-3 py-1 text-blue-600 hover:text-blue-800 text-sm font-medium border border-blue-200 rounded hover:bg-blue-50 transition-colors"
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    v-if="!address.is_default"
-                                    @click.stop="setAsDefault(address.id)"
-                                    class="px-3 py-1 text-rose-600 hover:text-rose-800 text-sm font-medium border border-rose-200 rounded hover:bg-rose-50 transition-colors"
-                                >
-                                    Set as Default
-                                </button>
-                            </div>
+                            <p class="text-gray-500 text-xs">{{ addr.phone_number }}</p>
+                            <p class="text-gray-600 text-xs mt-2 leading-relaxed">
+                                {{ addr.full_address }}, {{ addr.district?.name }}, {{ addr.city?.name }}
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Empty State in Modal -->
-                    <div
-                        v-if="addresses.length === 0"
-                        class="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg"
-                    >
-                        <p class="text-gray-500 mb-4">No addresses saved</p>
-                        <button
-                            @click="openCreateForm"
-                            class="text-rose-600 hover:text-rose-700 font-medium"
-                        >
-                            Add New Address
-                        </button>
-                    </div>
-                </div>
-
-                <div class="p-6 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-                    <div class="flex justify-end space-x-3">
-                        <button
-                            @click="closeAddressSelector"
-                            class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            @click="confirmAddressSelection"
-                            :disabled="!selectedAddressId"
-                            class="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                        >
-                            Use Selected Address
-                        </button>
-                    </div>
+                    <!-- Add New Button -->
+                    <button @click="openCreateForm" class="w-full py-4 border-2 border-dashed border-rose-200 rounded-xl text-rose-500 font-bold hover:bg-rose-50 hover:border-rose-400 transition-all flex items-center justify-center gap-2 mt-4">
+                        <Plus class="w-5 h-5" /> Add New Address
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Address Form Modal -->
-        <AddressFormModal
-            :show="showForm"
-            :address="editingAddress"
-            @close="closeForm"
-            @saved="handleSaved"
-        />
-
-        <!-- Delete Confirmation Modal -->
-        <DeleteConfirmationModal
-            :show="showDeleteModal"
-            :address="deletingAddress"
-            @close="closeDeleteModal"
-            @confirmed="handleDeleteConfirmed"
+        <!-- 3. FORM MODAL (Imported) -->
+        <AddressFormModal 
+            :show="isFormOpen" 
+            :address="editingAddress" 
+            @close="isFormOpen = false" 
+            @saved="handleSaved" 
         />
     </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useAddress } from '@/composables/useAddress'
-import AddressFormModal from './AddressFormModal.vue'
-import DeleteConfirmationModal from './DeleteConfirmationModal.vue'
-
-const emit = defineEmits(['address-selected'])
-
-const { 
-    addresses, 
-    loading, 
-    error, 
-    loadAddresses, 
-    deleteAddress, 
-    setDefaultAddress 
-} = useAddress()
-
-const showForm = ref(false)
-const editingAddress = ref(null)
-const showDeleteModal = ref(false)
-const deletingAddress = ref(null)
-const showAddressSelector = ref(false)
-const selectedAddressId = ref(null)
-
-// Computed property untuk mendapatkan alamat default
-const defaultAddress = computed(() => {
-    return addresses.value.find(addr => addr.is_default) || addresses.value[0]
-})
-
-// Computed property untuk mendapatkan alamat yang dipilih di modal
-const selectedAddressInModal = computed(() => {
-    return addresses.value.find(addr => addr.id === selectedAddressId.value)
-})
-
-const openCreateForm = () => {
-    editingAddress.value = null
-    showForm.value = true
-}
-
-const openEditForm = (address) => {
-    editingAddress.value = address
-    showForm.value = true
-}
-
-const closeForm = () => {
-    showForm.value = false
-    editingAddress.value = null
-}
-
-const openDeleteModal = (address) => {
-    deletingAddress.value = address
-    showDeleteModal.value = true
-}
-
-const closeDeleteModal = () => {
-    showDeleteModal.value = false
-    deletingAddress.value = null
-}
-
-// Buka modal pemilih alamat
-const openAddressSelector = () => {
-    selectedAddressId.value = defaultAddress.value?.id || null
-    showAddressSelector.value = true
-}
-
-// Tutup modal pemilih alamat
-const closeAddressSelector = () => {
-    showAddressSelector.value = false
-    selectedAddressId.value = null
-}
-
-// Pilih alamat di modal
-const selectAddressInModal = (address) => {
-    selectedAddressId.value = address.id
-}
-
-// Konfirmasi pemilihan alamat dari modal
-const confirmAddressSelection = () => {
-    if (selectedAddressInModal.value) {
-        emit('address-selected', selectedAddressInModal.value)
-        closeAddressSelector()
-    }
-}
-
-const handleSaved = () => {
-    closeForm()
-    loadAddresses()
-}
-
-const handleDeleteConfirmed = async (address) => {
-    const result = await deleteAddress(address.id)
-    if (result.success) {
-        closeDeleteModal()
-        loadAddresses()
-    }
-}
-
-const setAsDefault = async (id) => {
-    const result = await setDefaultAddress(id)
-    if (result.success) {
-        loadAddresses()
-        // Auto-select the new default address
-        const newDefault = addresses.value.find(addr => addr.is_default)
-        if (newDefault) {
-            emit('address-selected', newDefault)
-        }
-    }
-}
-
-// Auto-select default address ketika komponen dimount
-onMounted(() => {
-    loadAddresses().then(() => {
-        if (defaultAddress.value) {
-            emit('address-selected', defaultAddress.value)
-        }
-    })
-})
-</script>
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar { width: 5px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+</style>

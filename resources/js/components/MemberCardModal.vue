@@ -1,124 +1,159 @@
-<script setup lang="ts">
-import { computed } from 'vue';
-import QrcodeVue from 'qrcode.vue';
-import { X, Crown, Copy } from 'lucide-vue-next';
+<script setup>
+import { X, Copy, CheckCircle2, Crown, Sparkles, Gem } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
 
-const props = defineProps<{
-    show: boolean;
-    user: any;
-    tier: string;
-}>();
+const props = defineProps({
+    show: Boolean,
+    user: Object,
+    tier: String // 'Bronze', 'Silver', 'Gold'
+});
 
 const emit = defineEmits(['close']);
 
-// 1. Tentukan Warna Kartu Berdasarkan Tier
-const cardStyle = computed(() => {
+const copied = ref(false);
+
+const copyId = () => {
+    const memberId = props.user.id.toString().padStart(6, '0');
+    const fullId = `MEM-${memberId}`;
+    navigator.clipboard.writeText(fullId);
+    copied.value = true;
+    setTimeout(() => copied.value = false, 2000);
+};
+
+// --- CARD DESIGN LOGIC ---
+const cardDesign = computed(() => {
     switch (props.tier) {
         case 'Gold':
-            return 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 text-white border-yellow-300';
+            return {
+                bg: 'bg-gradient-to-br from-yellow-500 via-amber-300 to-yellow-600',
+                text: 'text-yellow-950', // Teks gelap agar kontras dengan emas
+                border: 'border-yellow-200',
+                icon: Crown,
+                label: 'VIP GOLD',
+                shine: 'bg-white/30',
+                pattern: 'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.4) 0%, transparent 60%)'
+            };
         case 'Silver':
-            return 'bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500 text-white border-slate-200';
-        default: // Bronze
-            return 'bg-gradient-to-br from-orange-300 via-orange-400 to-orange-600 text-white border-orange-200';
+            return {
+                bg: 'bg-gradient-to-br from-slate-300 via-gray-100 to-slate-400',
+                text: 'text-slate-800', // Teks gelap
+                border: 'border-slate-200',
+                icon: Gem,
+                label: 'PLATINUM SILVER',
+                shine: 'bg-white/40',
+                pattern: 'linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.5) 50%, transparent 55%)'
+            };
+        default: // Bronze (Rose Gold - Theme Standard)
+            return {
+                bg: 'bg-gradient-to-br from-rose-400 via-pink-500 to-rose-600',
+                text: 'text-white', // Teks putih
+                border: 'border-rose-300',
+                icon: Sparkles,
+                label: 'ROSE BRONZE',
+                shine: 'bg-white/10',
+                pattern: 'radial-gradient(circle at 100% 100%, rgba(255,255,255,0.2) 0%, transparent 50%)'
+            };
     }
-});
-
-// 2. Data QR Code
-const qrValue = computed(() => {
-    return JSON.stringify({
-        id: props.user.id,
-        email: props.user.email,
-        tier: props.tier,
-        type: 'membership'
-    });
-});
-
-// 3. Format Tanggal Join
-const joinDate = computed(() => {
-    return new Date(props.user.created_at).toLocaleDateString('id-ID', {
-        month: 'long', year: 'numeric'
-    });
-});
-
-// 4. ID Member Visual
-const memberId = computed(() => {
-    return 'MEM-' + String(props.user.id).padStart(6, '0');
 });
 </script>
 
 <template>
-    <Transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0 scale-95"
-        enter-to-class="opacity-100 scale-100"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100 scale-100"
-        leave-to-class="opacity-0 scale-95"
-    >
-        <div v-if="show" class="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto" @click.self="emit('close')">
-            
-            <div class="relative w-full max-w-sm my-auto">
+    <Teleport to="body">
+        <Transition 
+            enter-active-class="transition ease-out duration-300"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition ease-in duration-200"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+        >
+            <div v-if="show" class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                 
-                <!-- KARTU UTAMA -->
-                <div 
-                    class="relative w-full aspect-[1.58/1] rounded-2xl shadow-2xl overflow-hidden p-5 flex flex-col justify-between border-t border-l border-white/30"
-                    :class="cardStyle"
-                >
-                    <!-- TOMBOL CLOSE -->
-                    <button 
-                        @click="emit('close')" 
-                        class="absolute top-3 right-3 text-white/80 hover:text-white transition z-20 p-1 rounded-full hover:bg-white/10"
-                    >
-                        <X class="w-5 h-5" />
+                <div class="absolute inset-0 bg-black/70 backdrop-blur-md transition-opacity" @click="$emit('close')"></div>
+
+                <div class="relative w-full max-w-md transform transition-all scale-100 flex flex-col items-center">
+                    
+                    <button @click="$emit('close')" class="absolute -top-12 right-0 md:-right-12 text-white/80 hover:text-white transition-colors bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur-sm">
+                        <X class="w-6 h-6" />
                     </button>
 
-                    <!-- Decor -->
-                    <div class="absolute -top-24 -right-24 w-48 h-48 bg-white opacity-20 blur-3xl rounded-full z-0"></div>
+                    <div 
+                        class="w-full aspect-[1.58/1] rounded-3xl shadow-2xl relative overflow-hidden flex flex-col justify-between p-6 select-none transition-transform hover:scale-[1.02] duration-500"
+                        :class="[cardDesign.bg, cardDesign.text]"
+                    >
+                        <div class="absolute inset-0 pointer-events-none" :style="{ background: cardDesign.pattern }"></div>
+                        <div class="absolute -top-20 -right-20 w-60 h-60 rounded-full blur-3xl" :class="cardDesign.shine"></div>
 
-                    <!-- Header -->
-                    <div class="flex justify-between items-start relative z-10 mt-1">
-                        <div>
-                            <p class="text-[10px] font-medium tracking-[0.25em] uppercase opacity-80">SkinLab Beauty</p>
-                            <h3 class="text-xl font-bold flex items-center gap-2 mt-0.5">
-                                <Crown class="w-5 h-5 fill-current" /> {{ tier }} Member
-                            </h3>
-                        </div>
-                        <!-- Chip Decor -->
-                        <div class="w-11 h-8 bg-gradient-to-r from-yellow-100/50 to-yellow-300/50 rounded-md border border-white/30 backdrop-blur-sm mr-6"></div>
-                    </div>
-
-                    <!-- QR Code (Ukuran disesuaikan agar tidak mendorong footer) -->
-                    <div class="flex justify-center relative z-10 flex-1 items-center py-2">
-                        <div class="bg-white p-2 rounded-xl shadow-sm">
-                            <QrcodeVue :value="qrValue" :size="95" level="H" render-as="svg" />
-                        </div>
-                    </div>
-
-                    <!-- Footer -->
-                    <div class="relative z-10">
-                        <div class="flex justify-between items-end">
-                            <div class="min-w-0 flex-1 pr-4">
-                                <p class="text-[9px] uppercase opacity-70 mb-0.5">Member Name</p>
-                                <p class="font-mono font-bold text-base tracking-wide truncate">{{ user.name }}</p>
+                        <div class="relative z-10 flex justify-between items-start">
+                            <div>
+                                <h3 class="text-lg font-extrabold tracking-widest uppercase opacity-90">SkinLab</h3>
+                                <p class="text-[10px] font-medium tracking-[0.3em] uppercase opacity-75">Beauty Club</p>
                             </div>
-                            <div class="text-right shrink-0">
-                                <p class="text-[9px] uppercase opacity-70 mb-0.5">Since</p>
-                                <p class="font-mono font-bold text-base">{{ joinDate }}</p>
+                            <div class="flex flex-col items-end">
+                                <component :is="cardDesign.icon" class="w-8 h-8 mb-1 opacity-90" />
+                                <span class="text-[10px] font-black uppercase tracking-wider border-b-2 border-current pb-0.5 opacity-80">
+                                    {{ cardDesign.label }}
+                                </span>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- ID Section -->
-                <div class="mt-5 text-center">
-                    <p class="text-gray-300 text-xs mb-1.5 font-medium">Member ID</p>
-                    <div class="inline-flex items-center gap-2 bg-white/10 px-5 py-2.5 rounded-full text-white font-mono tracking-widest border border-white/20 shadow-sm hover:bg-white/20 transition-colors cursor-pointer group text-sm">
-                        {{ memberId }}
-                        <Copy class="w-3.5 h-3.5 ml-1 opacity-50 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                </div>
+                        <div class="relative z-10 flex items-center justify-between mt-2">
+                            <div class="w-12 h-9 rounded-lg bg-gradient-to-tr from-yellow-200 to-yellow-500 border border-yellow-600 shadow-inner opacity-90 relative overflow-hidden">
+                                <div class="absolute top-1/2 w-full h-[1px] bg-yellow-700 opacity-50"></div>
+                                <div class="absolute left-1/3 h-full w-[1px] bg-yellow-700 opacity-50"></div>
+                                <div class="absolute right-1/3 h-full w-[1px] bg-yellow-700 opacity-50"></div>
+                            </div>
 
+                            <div class="bg-white p-1.5 rounded-xl shadow-lg">
+                                <img 
+                                    :src="`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${user.email}`" 
+                                    class="w-20 h-20 object-contain"
+                                    alt="QR"
+                                >
+                            </div>
+                        </div>
+
+                        <div class="relative z-10 mt-auto pt-4">
+                            <div class="flex justify-between items-end">
+                                <div>
+                                    <p class="text-[9px] uppercase tracking-widest opacity-60 mb-1">Card Holder</p>
+                                    <p class="text-xl font-bold tracking-wide truncate max-w-[200px] drop-shadow-sm font-mono">
+                                        {{ user.name.toUpperCase() }}
+                                    </p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-[9px] uppercase tracking-widest opacity-60 mb-1">Valid Thru</p>
+                                    <p class="text-sm font-bold font-mono">12/30</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-8 flex flex-col items-center gap-3 w-full">
+                        <p class="text-white/60 text-xs font-medium uppercase tracking-widest">Membership ID</p>
+                        
+                        <button 
+                            @click="copyId"
+                            class="group relative w-full max-w-xs bg-white/10 hover:bg-white/15 border border-white/10 rounded-2xl p-1 pr-4 flex items-center justify-between transition-all"
+                        >
+                            <div class="bg-white/10 rounded-xl px-4 py-2.5 font-mono text-lg text-white font-bold tracking-widest shadow-inner">
+                                MEM-{{ user.id.toString().padStart(6, '0') }}
+                            </div>
+                            
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-white/50 group-hover:text-white transition-colors font-medium">
+                                    {{ copied ? 'Copied!' : 'Copy' }}
+                                </span>
+                                <component 
+                                    :is="copied ? CheckCircle2 : Copy" 
+                                    class="w-5 h-5 transition-all"
+                                    :class="copied ? 'text-green-400 scale-110' : 'text-white/70 group-hover:text-white'"
+                                />
+                            </div>
+                        </button>
+                    </div>
+
+                </div>
             </div>
-        </div>
-    </Transition>
+        </Transition>
+    </Teleport>
 </template>
