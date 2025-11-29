@@ -4,7 +4,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import { ref, computed, onMounted, watch } from 'vue';
 import { 
     Plus, Trash2, Check, Circle, 
-    Search, X, Bell, Globe, Repeat, Edit3, Clock, ChevronDown, PenTool, Minus
+    Search, X, Bell, Globe, Repeat, Edit3, Clock, ChevronRight, PenTool, Minus, AlertTriangle
 } from 'lucide-vue-next';
 import { requestPermission } from '@/firebase';
 
@@ -46,6 +46,7 @@ const groupedRoutines = computed(() => {
     const groups: Record<string, any> = {};
 
     props.routines.forEach(routine => {
+        // Key unik berdasarkan Product ID atau Nama Manual
         const key = routine.product_id 
             ? `prod-${routine.product_id}` 
             : `manual-${routine.custom_product_name.toLowerCase().trim()}`;
@@ -71,6 +72,7 @@ const groupedRoutines = computed(() => {
         });
     });
 
+    // Sorting slot waktu di dalam grup
     Object.values(groups).forEach((group: any) => {
         group.slots.sort((a: any, b: any) => {
             if (!a.reminder_time) return 1;
@@ -86,6 +88,11 @@ const groupedRoutines = computed(() => {
 const showModal = ref(false);
 const isEditMode = ref(false);
 const editingId = ref<number | null>(null);
+
+// State Delete Modal
+const showDeleteModal = ref(false);
+const itemToDelete = ref<any>(null);
+const deleteProductName = ref('');
 
 // Search State
 const searchQuery = ref('');
@@ -121,6 +128,7 @@ const form = useForm({
     timezone_input: browserTimezone
 });
 
+// Auto Toggle Reminder
 watch(() => form.reminder_times, (newVal) => {
     const hasTime = newVal.some(t => t !== '');
     if (hasTime && !form.is_reminder_active) form.is_reminder_active = true;
@@ -130,7 +138,7 @@ watch(() => form.reminder_time, (newVal) => {
     if (newVal && !form.is_reminder_active) form.is_reminder_active = true;
 });
 
-// --- ACTIONS ---
+// --- ACTIONS UTAMA ---
 
 const addTimeSlot = () => { form.reminder_times.push(''); };
 const removeTimeSlot = (index: number) => { form.reminder_times.splice(index, 1); };
@@ -164,6 +172,7 @@ const openEditModal = (slot: any, groupName: string) => {
     form.reminder_time = item.reminder_time ? utcToLocalInput(item.reminder_time) : '';
     form.reminder_times = [];
 
+    // Setup Product Info (Locked)
     if (item.product_id) {
         const product = props.storeProducts.find(p => p.id === item.product_id);
         selectedStoreProduct.value = product || { name: item.name, image_url: item.image_url, brand_name: item.brand_name };
@@ -179,6 +188,28 @@ const openEditModal = (slot: any, groupName: string) => {
     showModal.value = true;
 };
 
+// --- DELETE ACTIONS ---
+const confirmDelete = (slot: any, productName: string) => {
+    itemToDelete.value = slot;
+    deleteProductName.value = productName;
+    showDeleteModal.value = true;
+};
+
+const deleteSingle = () => {
+    if (!itemToDelete.value) return;
+    router.delete(route('routine.destroy', itemToDelete.value.id), {
+        onSuccess: () => { showDeleteModal.value = false; if(isEditMode.value) showModal.value = false; }
+    });
+};
+
+const deleteAll = () => {
+    if (!itemToDelete.value) return;
+    router.delete(route('routine.destroy-group', itemToDelete.value.id), {
+        onSuccess: () => { showDeleteModal.value = false; if(isEditMode.value) showModal.value = false; }
+    });
+};
+
+// --- FORM ACTIONS ---
 const selectStoreProduct = (product: any) => {
     form.product_id = product.id;
     form.custom_product_name = null;
@@ -206,16 +237,6 @@ const submitRoutine = () => {
         });
     } else {
         form.post(route('routine.store'), {
-            onSuccess: () => showModal.value = false,
-            preserveScroll: true
-        });
-    }
-};
-
-const deleteRoutine = () => {
-    if (!editingId.value) return;
-    if(confirm('Hapus jadwal waktu ini?')) {
-        router.delete(route('routine.destroy', editingId.value), {
             onSuccess: () => showModal.value = false,
             preserveScroll: true
         });
@@ -265,17 +286,28 @@ const toggleCheck = (id: number) => {
 
             <!-- Kartu Per Produk -->
             <div v-for="(group, index) in groupedRoutines" :key="index" 
-                class="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm transition-shadow hover:shadow-md"
+                class="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm transition-shadow hover:shadow-md relative group/card"
             >
+                
+                <!-- TOMBOL HAPUS SEMUA (TRASH ICON) -->
+                <button 
+                    v-if="group.slots.length > 0"
+                    @click="confirmDelete(group.slots[0], group.name)" 
+                    class="absolute top-4 right-4 text-gray-300 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-all z-10"
+                    title="Hapus Semua Jadwal Produk Ini"
+                >
+                    <Trash2 class="w-5 h-5" />
+                </button>
+
                 <div class="flex items-start gap-4">
-                    <!-- KIRI: Gambar Produk -->
+                    <!-- Gambar Produk -->
                     <div class="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-gray-100 self-center">
                         <img v-if="group.image_url" :src="group.image_url" class="w-full h-full object-cover">
                         <div v-else class="w-full h-full flex items-center justify-center text-gray-300 text-xs font-bold">IMG</div>
                     </div>
 
-                    <!-- TENGAH: Info Produk -->
-                    <div class="flex-1 min-w-0 self-center">
+                    <!-- Info Produk -->
+                    <div class="flex-1 min-w-0 self-center pr-8">
                         <h3 class="text-sm font-bold text-gray-900 leading-tight mb-1 line-clamp-2">
                             {{ group.name }}
                         </h3>
@@ -286,7 +318,7 @@ const toggleCheck = (id: number) => {
                     </div>
 
                     <!-- KANAN: Slot Waktu (Vertikal) -->
-                    <div class="flex flex-col gap-2 shrink-0 items-end pl-2 border-l border-gray-100">
+                    <div class="flex flex-col gap-2 shrink-0 items-end pl-2 border-l border-gray-100 mt-2 sm:mt-0">
                         <div 
                             v-for="slot in group.slots" 
                             :key="slot.id"
@@ -308,7 +340,6 @@ const toggleCheck = (id: number) => {
                                 </span>
                             </button>
 
-                            <!-- Divider Kecil -->
                             <div class="w-px h-4 bg-gray-300 mx-0.5"></div>
 
                             <!-- Tombol Edit (Pensil) -->
@@ -319,13 +350,64 @@ const toggleCheck = (id: number) => {
                             >
                                 <Edit3 class="w-3.5 h-3.5" />
                             </button>
+
+                            <!-- Tombol Hapus Kecil (Per Jam) -->
+                             <div class="w-px h-4 bg-gray-300 mx-0.5"></div>
+                            <button 
+                                @click.stop="confirmDelete(slot, group.name)" 
+                                class="px-2 py-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" 
+                                title="Hapus Jadwal Ini"
+                            >
+                                <X class="w-3.5 h-3.5" />
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- MODAL FORM -->
+        <!-- MODAL DELETE CONFIRMATION -->
+        <div v-if="showDeleteModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all">
+            <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-fade-in-up p-6 text-center border border-gray-100">
+                
+                <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                    <AlertTriangle class="w-6 h-6" />
+                </div>
+                
+                <h3 class="font-bold text-lg text-gray-900 mb-2">Hapus Rutinitas?</h3>
+                <p class="text-sm text-gray-500 mb-6 leading-relaxed">
+                    Anda ingin menghapus jadwal untuk <br><strong class="text-gray-800">{{ deleteProductName }}</strong>?
+                </p>
+                
+                <div class="space-y-3">
+                    <!-- Opsi 1: Hapus Jam Ini Saja (Hanya muncul jika ID spesifik) -->
+                    <button 
+                        @click="deleteSingle" 
+                        class="w-full bg-white border border-gray-300 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50 transition-colors text-sm"
+                    >
+                        Hapus Jadwal Waktu Ini Saja
+                    </button>
+
+                    <!-- Opsi 2: Hapus Semua Jadwal Produk Ini -->
+                    <button 
+                        @click="deleteAll" 
+                        class="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors text-sm shadow-lg shadow-red-200"
+                    >
+                        Hapus Semua Jadwal Produk Ini
+                    </button>
+
+                    <!-- Batal -->
+                    <button 
+                        @click="showDeleteModal = false" 
+                        class="w-full text-gray-400 text-xs font-medium hover:text-gray-600 py-2"
+                    >
+                        Batal
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL FORM (Add & Edit) -->
         <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all">
             <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-fade-in-up border border-gray-100 max-h-[90vh] flex flex-col">
                 
@@ -342,53 +424,32 @@ const toggleCheck = (id: number) => {
                     
                     <!-- 1. PRODUK -->
                     <div :class="{'opacity-75 pointer-events-none': isEditMode}">
-                        <label class="block text-sm font-bold text-gray-900 mb-2">
-                            Nama Produk {{ isEditMode ? '(Tidak dapat diubah saat edit waktu)' : '' }}
-                        </label>
-                        
+                        <label class="block text-sm font-bold text-gray-900 mb-2">Nama Produk</label>
                         <div v-if="selectedStoreProduct" class="flex items-center gap-3 p-3 border border-rose-200 bg-rose-50/50 rounded-xl relative group">
-                             <div class="w-12 h-12 bg-white rounded-lg overflow-hidden border border-rose-100 shrink-0">
-                                <img v-if="selectedStoreProduct.image_url" :src="selectedStoreProduct.image_url" class="w-full h-full object-cover">
-                             </div>
+                             <div class="w-12 h-12 bg-white rounded-lg overflow-hidden border border-rose-100 shrink-0"><img v-if="selectedStoreProduct.image_url" :src="selectedStoreProduct.image_url" class="w-full h-full object-cover"></div>
                              <div class="flex-1 min-w-0">
                                 <p class="text-[10px] text-rose-500 font-bold uppercase">{{ selectedStoreProduct.brand_name || 'Brand' }}</p>
                                 <p class="text-sm font-bold text-gray-900 truncate">{{ selectedStoreProduct.name }}</p>
                              </div>
                              <button v-if="!isEditMode" @click="clearSelectedProduct" class="p-1.5 text-gray-400 hover:text-red-500 bg-white rounded-full shadow-sm hover:shadow transition-all"><X class="w-4 h-4" /></button>
                         </div>
-
                         <div v-else class="relative">
                             <Search class="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
-                            <input 
-                                v-model="searchQuery" 
-                                @focus="isDropdownOpen = true"
-                                type="text" 
-                                placeholder="Cari di katalog atau ketik manual..." 
-                                class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:border-rose-500 focus:ring-rose-500 shadow-sm transition-shadow"
-                            >
+                            <input v-model="searchQuery" @focus="isDropdownOpen = true" type="text" placeholder="Cari katalog atau ketik manual..." class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:border-rose-500 focus:ring-rose-500 shadow-sm transition-shadow">
                             <div v-if="searchQuery && isDropdownOpen && filteredStoreProducts.length > 0" class="absolute z-20 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                                <div class="px-3 py-2 text-[10px] font-bold text-gray-400 uppercase bg-gray-50 tracking-wider">Katalog Toko</div>
-                                <button v-for="p in filteredStoreProducts" :key="p.id" @click="selectStoreProduct(p)" class="w-full flex items-center gap-3 p-3 hover:bg-rose-50 text-left border-b border-gray-50 last:border-0 transition-colors">
+                                <button v-for="p in filteredStoreProducts" :key="p.id" @click="selectStoreProduct(p)" class="w-full flex items-center gap-3 p-3 hover:bg-rose-50 text-left border-b border-gray-50 transition-colors">
                                     <div class="w-8 h-8 bg-gray-100 rounded overflow-hidden flex-shrink-0"><img v-if="p.image_url" :src="p.image_url" class="w-full h-full object-cover"></div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs text-gray-500 font-bold">{{ p.brand_name }}</p>
-                                        <p class="text-sm font-bold text-gray-900 truncate">{{ p.name }}</p>
-                                    </div>
+                                    <div class="flex-1 min-w-0"><p class="text-xs text-gray-500 font-bold">{{ p.brand_name }}</p><p class="text-sm font-bold text-gray-900 truncate">{{ p.name }}</p></div>
                                 </button>
                             </div>
-                            <div v-if="searchQuery && !selectedStoreProduct" class="mt-2 flex items-center gap-2 text-xs text-rose-500 bg-rose-50 p-2 rounded-lg border border-rose-100">
-                                <PenTool class="w-3 h-3" />
-                                <span>Simpan sebagai manual: <b class="text-gray-900">"{{ searchQuery }}"</b></span>
-                            </div>
+                            <div v-if="searchQuery && !selectedStoreProduct" class="mt-2 flex items-center gap-2 text-xs text-rose-500 bg-rose-50 p-2 rounded-lg border border-rose-100"><PenTool class="w-3 h-3" /><span>Simpan sebagai manual: <b class="text-gray-900">"{{ searchQuery }}"</b></span></div>
                         </div>
                     </div>
 
                     <!-- 2. SETTINGS -->
                     <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-4">
                         <div class="flex items-center justify-between">
-                            <label class="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                <Bell class="w-4 h-4 text-rose-500" /> Aktifkan Pengingat?
-                            </label>
+                            <label class="text-sm font-bold text-gray-800 flex items-center gap-2"><Bell class="w-4 h-4 text-rose-500" /> Pengingat</label>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" v-model="form.is_reminder_active" class="sr-only peer">
                                 <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-rose-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
@@ -429,6 +490,7 @@ const toggleCheck = (id: number) => {
                         </div>
                     </div>
 
+                    <!-- 3. DETAILS -->
                     <div class="grid grid-cols-3 gap-4">
                         <div class="col-span-1">
                             <label class="block text-sm font-bold text-gray-900 mb-2">Urutan</label>
@@ -441,7 +503,7 @@ const toggleCheck = (id: number) => {
                     </div>
 
                     <div class="flex gap-3 pt-2">
-                        <button v-if="isEditMode" @click="deleteRoutine" type="button" class="px-5 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors border border-red-100"><Trash2 class="w-5 h-5" /></button>
+                        <button v-if="isEditMode" @click="confirmDelete({id: editingId}, selectedStoreProduct ? selectedStoreProduct.name : form.custom_product_name)" type="button" class="px-5 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors border border-red-100"><Trash2 class="w-5 h-5" /></button>
                         <button @click="submitRoutine" :disabled="form.processing || (!selectedStoreProduct && !searchQuery)" class="flex-1 bg-rose-600 text-white py-3 rounded-xl font-bold hover:bg-rose-700 disabled:opacity-50 shadow-lg shadow-rose-200 transition-all">
                             {{ isEditMode ? 'Simpan Perubahan' : 'Simpan Jadwal' }}
                         </button>

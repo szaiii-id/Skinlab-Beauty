@@ -8,9 +8,7 @@ import {
 
 // --- STATE ---
 // Data dummy awal
-const notifications = ref<Array<{ title: string; body: string; time: string }>>([
-    { title: 'Selamat Datang', body: 'Selamat datang di SkinLab Beauty!', time: 'Baru saja' }
-]);
+const notifications = ref<Array<{ title: string; body: string; time: string }>>([]);
 
 const showToast = ref(false);
 const showDropdown = ref(false); // State untuk membuka dropdown

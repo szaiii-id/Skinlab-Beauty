@@ -1,11 +1,11 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { Head, Link, usePage, router } from '@inertiajs/vue3';
 import { useCart } from '@/composables/useCart';
 import { useFormatting } from '@/composables/useFormatting';
 import { useWishlist } from '@/composables/useWishlist';
 import AppNavbarLayout from '@/layouts/app/AppNavbarLayout.vue';
-import { Heart, ShoppingCart, Zap, Star, User } from 'lucide-vue-next'; // Tambah Icon Star & User
+import { Heart, ShoppingCart, Zap, Star, User } from 'lucide-vue-next'; 
 
 defineOptions({
     layout: AppNavbarLayout
@@ -19,8 +19,11 @@ const props = defineProps({
     }
 });
 
-// --- LOGIKA LAMA (Cart, Wishlist, Variant) ---
-const selectedVariantId = ref(props.product.variants[0]?.variant_id || '');
+// --- LOGIC BARU: AUTO SELECT VARIANT WITH STOCK ---
+// Cari varian pertama yang stoknya > 0. Jika semua habis, ambil yang pertama.
+const defaultVariant = props.product.variants.find(v => v.stock > 0) || props.product.variants[0];
+const selectedVariantId = ref(defaultVariant?.variant_id || '');
+
 const quantity = ref(1);
 const justAdded = ref(false);
 const flash = computed(() => usePage().props.flash?.success);
@@ -41,14 +44,29 @@ const currentVariant = computed(() => {
     return props.product.variants.find(v => v.variant_id === selectedVariantId.value);
 });
 
+// --- LOGIC BARU: STATUS SOLD OUT ---
+const isOutOfStock = computed(() => {
+    return !currentVariant.value || currentVariant.value.stock <= 0;
+});
+
 const isWished = computed(() => {
     if (!currentVariant.value) return false;
     const wishlistItems = props.wishlistItems || [];
     return wishlistItems.includes(currentVariant.value.variant_id.toString());
 });
 
-const increment = () => { if (currentVariant.value && quantity.value < currentVariant.value.stock) quantity.value++; };
+// Validasi Quantity agar tidak melebihi stok
+const increment = () => { 
+    if (currentVariant.value && quantity.value < currentVariant.value.stock) {
+        quantity.value++;
+    }
+};
 const decrement = () => { if (quantity.value > 1) quantity.value--; };
+
+// Reset quantity ke 1 saat varian berubah
+watch(selectedVariantId, () => {
+    quantity.value = 1;
+});
 
 const handleAddToCartClick = () => {
     if (!selectedVariantId.value) { alert('Please select a variant first.'); return; }
@@ -62,7 +80,9 @@ const handleBuyNowClick = () => {
     if (!selectedVariantId.value) { alert('Please select a variant first.'); return; }
     const user = usePage().props.auth.user;
     if (!user) { alert('Please login to continue to checkout.'); router.get('/login'); return; }
-    if (!currentVariant.value || currentVariant.value.stock === 0) { alert('This product is out of stock.'); return; }
+    
+    if (isOutOfStock.value) { alert('This product is out of stock.'); return; } // Cek stok
+    
     if (quantity.value > currentVariant.value.stock) { alert(`Only ${currentVariant.value.stock} items available in stock.`); return; }
     router.get('/checkout', { items: [selectedVariantId.value], quantity: quantity.value });
 };
@@ -84,23 +104,18 @@ const addToCartIconClasses = computed(() => justAdded.value ? 'text-green-600' :
 const wishlistButtonClasses = computed(() => isWished.value ? 'bg-rose-100 border-rose-600' : 'bg-white border-gray-300 hover:bg-gray-100');
 const wishlistIconClasses = computed(() => isWished.value ? 'fill-rose-600 text-rose-600' : 'text-gray-500');
 
-// --- LOGIKA BARU: REVIEWS ---
-// Menghitung rata-rata rating jika belum ada di database product
 const averageRating = computed(() => {
     if (!props.product.reviews || props.product.reviews.length === 0) return 0;
     const total = props.product.reviews.reduce((acc, review) => acc + review.rating, 0);
     return (total / props.product.reviews.length).toFixed(1);
 });
 
-// Format tanggal review
 const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
         year: 'numeric', month: 'long', day: 'numeric'
     });
 };
 
-// Masking nama (Opsional: Budi Santoso -> Budi S****)
-// Saat ini saya gunakan nama asli agar lebih personal, tapi bisa diubah
 const getDisplayName = (user) => {
     return user ? user.name : 'Pengguna';
 };
@@ -130,8 +145,21 @@ const getDisplayName = (user) => {
                         <Link href="/catalog" class="inline-flex items-center px-4 py-2 border border-rose-600 text-rose-600 rounded-full text-sm font-medium hover:bg-rose-50 transition-colors duration-300">
                             &larr; Back
                         </Link>
-                        <div class="mt-6 flex justify-center items-center bg-gray-100 rounded-lg shadow-md overflow-hidden aspect-square h-80 mx-auto">
-                            <img :src="product.image_url || '/images/default-product.png'" :alt="product.name" class="w-full h-full object-contain" />
+                        <!-- UPDATE: Tambahkan 'relative' agar overlay Sold Out bisa muncul -->
+                        <div class="mt-6 flex justify-center items-center bg-gray-100 rounded-lg shadow-md overflow-hidden aspect-square h-80 mx-auto relative">
+                            <img 
+                                :src="product.image_url || '/images/default-product.png'" 
+                                :alt="product.name" 
+                                class="w-full h-full object-contain" 
+                                :class="{'grayscale opacity-60': isOutOfStock}"
+                            />
+
+                            <!-- UPDATE: Badge Sold Out di Tengah Gambar -->
+                            <div v-if="isOutOfStock" class="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                                <span class="bg-black/80 text-white px-6 py-2 rounded-full font-bold text-lg shadow-lg tracking-wider uppercase">
+                                    Sold Out
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -154,33 +182,64 @@ const getDisplayName = (user) => {
                         <div class="mt-6">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Select Variant:</label>
                             <div class="flex space-x-3">
-                                <button v-for="variant in product.variants" :key="variant.variant_id" @click="selectedVariantId = variant.variant_id; quantity = 1" :disabled="variant.stock === 0" :class="{ 'bg-rose-600 text-white shadow-md': variant.variant_id === selectedVariantId, 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100': variant.variant_id !== selectedVariantId }" class="px-4 py-2 border rounded-full text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                    {{ variant.volume }}
+                                <!-- UPDATE: Logic disabled dihapus agar tombol tetap bisa diklik utk lihat status, tapi diberi visual 'habis' -->
+                                <button 
+                                    v-for="variant in product.variants" 
+                                    :key="variant.variant_id" 
+                                    @click="selectedVariantId = variant.variant_id" 
+                                    :class="[
+                                        variant.variant_id === selectedVariantId 
+                                            ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-200 ring-offset-1' 
+                                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100',
+                                        variant.stock === 0 ? 'opacity-60 border-dashed' : ''
+                                    ]" 
+                                    class="px-4 py-2 border rounded-full text-sm font-medium transition-all"
+                                >
+                                    {{ variant.volume }} 
+                                    <!-- Indikator X jika habis -->
+                                    <span v-if="variant.stock === 0" class="ml-1 text-xs">(Habis)</span>
                                 </button>
                             </div>
                         </div>
 
                         <div v-if="currentVariant" class="mt-6 border-t border-gray-200 pt-4">
                             <p class="text-3xl font-light text-gray-900">{{ formatCurrency(currentVariant.price) }}</p>
-                            <p :class="currentVariant.stock > 0 ? 'text-green-600' : 'text-red-600'" class="text-sm font-medium mt-1">Stock: {{ currentVariant.stock }}</p>
+                            <!-- UPDATE: Warna merah jika stok 0 -->
+                            <p :class="currentVariant.stock > 0 ? 'text-green-600' : 'text-red-600'" class="text-sm font-medium mt-1">
+                                {{ currentVariant.stock > 0 ? `Stock: ${currentVariant.stock}` : 'Stock Habis' }}
+                            </p>
                         </div>
                         
                         <div class="mt-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Quantity:</label>
                             <div class="flex items-center space-x-2">
-                                <button @click="decrement" :disabled="quantity <= 1 || isAddingToCart" class="w-8 h-8 flex items-center justify-center border border-gray-300 text-gray-700 rounded-full hover:bg-gray-100 transition-colors">&minus;</button>
+                                <!-- UPDATE: Disabled jika out of stock -->
+                                <button @click="decrement" :disabled="quantity <= 1 || isAddingToCart || isOutOfStock" class="w-8 h-8 flex items-center justify-center border border-gray-300 text-gray-700 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50">&minus;</button>
                                 <input type="text" v-model="quantity" readonly class="w-12 h-10 text-center border border-gray-300 text-gray-900 rounded-md focus:outline-none bg-gray-50" />
-                                <button @click="increment" :disabled="!currentVariant || quantity >= currentVariant.stock || isAddingToCart" class="w-8 h-8 flex items-center justify-center border border-gray-300 text-gray-700 rounded-full hover:bg-gray-100 transition-colors">&plus;</button>
+                                <button @click="increment" :disabled="!currentVariant || quantity >= currentVariant.stock || isAddingToCart || isOutOfStock" class="w-8 h-8 flex items-center justify-center border border-gray-300 text-gray-700 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50">&plus;</button>
                             </div>
                         </div>
 
                         <div class="flex items-center space-x-3 mt-6">
-                            <button @click="handleBuyNowClick" :disabled="!currentVariant || currentVariant.stock === 0 || isAddingToCart || justAdded" class="flex-1 flex items-center justify-center bg-rose-600 text-white p-3 rounded-md font-semibold transition-colors duration-300 hover:bg-rose-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
-                                <Zap class="h-5 w-5 mr-2" /> <span>Buy Now</span>
+                            <!-- UPDATE: Disabled jika isOutOfStock -->
+                            <button 
+                                @click="handleBuyNowClick" 
+                                :disabled="isOutOfStock || isAddingToCart || justAdded" 
+                                class="flex-1 flex items-center justify-center bg-rose-600 text-white p-3 rounded-md font-semibold transition-colors duration-300 hover:bg-rose-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            >
+                                <Zap class="h-5 w-5 mr-2" /> <span>{{ isOutOfStock ? 'Out of Stock' : 'Buy Now' }}</span>
                             </button>
-                            <button @click="handleAddToCartClick" :disabled="!currentVariant || currentVariant.stock === 0 || isAddingToCart || justAdded" :class="addToCartButtonClasses" class="p-3 border rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Add to Cart">
-                                <ShoppingCart class="h-6 w-6" :class="addToCartIconClasses" />
+                            
+                            <button 
+                                @click="handleAddToCartClick" 
+                                :disabled="isOutOfStock || isAddingToCart || justAdded" 
+                                :class="[addToCartButtonClasses, isOutOfStock ? 'bg-gray-100 border-gray-200 cursor-not-allowed' : '']" 
+                                class="p-3 border rounded-md transition-colors disabled:opacity-50" 
+                                title="Add to Cart"
+                            >
+                                <ShoppingCart class="h-6 w-6" :class="isOutOfStock ? 'text-gray-400' : addToCartIconClasses" />
                             </button>
+                            
                             <button @click="handleWishlistClick" :disabled="!currentVariant || isAdding || isRemoving" :class="wishlistButtonClasses" class="p-3 border rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :title="isWished ? 'Remove from Wishlist' : 'Add to Wishlist'">
                                 <Heart class="h-6 w-6" :class="wishlistIconClasses" />
                             </button>
@@ -189,6 +248,7 @@ const getDisplayName = (user) => {
                 </div>
             </div>
 
+            <!-- REVIEWS (Sama seperti code Anda) -->
             <div class="bg-white rounded-lg shadow-xl overflow-hidden p-8">
                 <div class="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
                     <h2 class="text-2xl font-light text-gray-900">Ulasan Pelanggan</h2>

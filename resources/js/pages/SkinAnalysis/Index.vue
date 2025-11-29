@@ -4,7 +4,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import { ref } from 'vue';
 import { 
     ScanFace, CheckCircle2, RefreshCw, ChevronRight, 
-    ArrowLeft, Sparkles, AlertCircle, ShoppingBag 
+    ArrowLeft, Sparkles, ShoppingBag 
 } from 'lucide-vue-next';
 import ProductCard from '@/components/ProductCard.vue';
 
@@ -68,7 +68,7 @@ const concernsList = [
 const form = useForm({
     answers: {} as Record<number, string>,
     concerns: [] as string[],
-    custom_concern: '' // <--- KOLOM BARU
+    custom_concern: '' 
 });
 
 const selectOption = (qId: number, val: string) => {
@@ -109,6 +109,7 @@ const retakeTest = () => {
                 <p class="text-gray-600">Kenali jenis kulitmu untuk rekomendasi produk yang tepat</p>
             </div>
 
+            <!-- VIEW 1: WELCOME -->
             <div v-if="mode === 'welcome'" class="bg-white rounded-2xl shadow border border-gray-100 p-12 text-center animate-fade-in">
                 <div class="inline-flex items-center justify-center w-24 h-24 bg-rose-50 rounded-full mb-6">
                     <ScanFace class="w-12 h-12 text-rose-500" />
@@ -120,6 +121,7 @@ const retakeTest = () => {
                 </button>
             </div>
 
+            <!-- VIEW 2: QUIZ WIZARD -->
             <div v-else-if="mode === 'quiz'" class="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden animate-fade-in">
                 
                 <div class="w-full bg-gray-50 h-2">
@@ -127,6 +129,7 @@ const retakeTest = () => {
                 </div>
 
                 <div class="p-8 md:p-10">
+                    <!-- Pertanyaan -->
                     <div v-if="currentStep < questions.length">
                         <span class="text-rose-600 font-bold tracking-wider text-xs uppercase mb-3 block">Pertanyaan {{ currentStep + 1 }} dari {{ questions.length }}</span>
                         <h2 class="text-2xl font-light text-gray-900 mb-8">{{ questions[currentStep].text }}</h2>
@@ -141,6 +144,7 @@ const retakeTest = () => {
                         </div>
                     </div>
 
+                    <!-- Step Terakhir: Concerns + Input Manual -->
                     <div v-else>
                         <h2 class="text-2xl font-light text-gray-900 mb-2">Apa masalah utama kulitmu?</h2>
                         <p class="text-gray-500 mb-6">Pilih masalah yang ingin kamu atasi.</p>
@@ -162,6 +166,7 @@ const retakeTest = () => {
                             ></textarea>
                             <p class="text-xs text-gray-400 mt-1">Sistem akan mencari produk berdasarkan kata kunci keluhanmu.</p>
                         </div>
+
                         <div class="flex items-center justify-between pt-6 border-t border-gray-100">
                             <button @click="currentStep--" class="text-gray-500 hover:text-gray-900 font-medium">Kembali</button>
                             <button @click="submitAnalysis" :disabled="form.processing || (form.concerns.length === 0 && !form.custom_concern)" class="inline-flex items-center px-8 py-3 bg-rose-600 text-white font-semibold rounded-lg hover:bg-rose-700 disabled:opacity-50 transition-colors">Lihat Hasil</button>
@@ -170,24 +175,44 @@ const retakeTest = () => {
                 </div>
             </div>
 
+            <!-- VIEW 3: RESULT (UPDATED: Tombol Analisis Ulang Pindah Ke Atas) -->
             <div v-else-if="mode === 'result'" class="space-y-8 animate-fade-in">
+                <!-- Banner Hasil -->
                 <div class="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden relative">
                     <div class="bg-gradient-to-r from-rose-500 to-pink-600 p-8 md:p-10 text-white">
-                        <div class="relative z-10">
-                            <div class="flex items-center gap-2 text-rose-100 mb-2">
-                                <Sparkles class="w-5 h-5" />
-                                <span class="uppercase tracking-wider text-sm font-bold">Hasil Analisis</span>
+                        
+                        <!-- Flex Container: Judul di Kiri, Tombol di Kanan -->
+                        <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                            
+                            <!-- KIRI: Info Hasil -->
+                            <div>
+                                <div class="flex items-center gap-2 text-rose-100 mb-2">
+                                    <Sparkles class="w-5 h-5" />
+                                    <span class="uppercase tracking-wider text-sm font-bold">Hasil Analisis</span>
+                                </div>
+                                <h2 class="text-4xl md:text-5xl font-bold mb-4">{{ existingProfile?.skin_type }}</h2>
+                                <div class="flex flex-wrap gap-2">
+                                    <span v-for="c in existingProfile?.skin_concerns" :key="c" class="bg-white/20 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-medium border border-white/30">{{ c }}</span>
+                                </div>
                             </div>
-                            <h2 class="text-4xl md:text-5xl font-bold mb-4">{{ existingProfile?.skin_type }}</h2>
-                            <div class="flex flex-wrap gap-2">
-                                <span v-for="c in existingProfile?.skin_concerns" :key="c" class="bg-white/20 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-medium border border-white/30">{{ c }}</span>
-                            </div>
+
+                            <!-- KANAN: Tombol Analisis Ulang (Posisi Baru) -->
+                            <button 
+                                @click="retakeTest" 
+                                class="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/40 rounded-lg text-sm font-medium transition-all text-white shadow-sm"
+                            >
+                                <RefreshCw class="w-4 h-4" /> Analisis Ulang
+                            </button>
+
                         </div>
+
+                        <!-- Background Decor -->
                         <div class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
                         <div class="absolute bottom-0 left-0 w-32 h-32 bg-rose-900 opacity-20 rounded-full blur-2xl"></div>
                     </div>
                 </div>
 
+                <!-- Grid Produk -->
                 <div class="space-y-4">
                     <h3 class="text-2xl font-light text-gray-900 flex items-center gap-2">
                         <ShoppingBag class="text-rose-600 w-6 h-6" /> Rekomendasi Produk Personal
@@ -204,13 +229,11 @@ const retakeTest = () => {
                     <div v-else class="bg-white rounded-2xl shadow border border-gray-100 p-12 text-center">
                         <div class="text-gray-300 mb-4 mx-auto w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center"><ScanFace class="w-10 h-10" /></div>
                         <p class="text-gray-500 mb-6">Belum ada produk spesifik. Coba ubah kata kunci pencarianmu.</p>
-                        <button @click="retakeTest" class="text-rose-600 font-medium hover:text-rose-700">Analisis Ulang</button>
+                        <!-- Tombol di sini juga masih ada sebagai alternatif jika user scroll ke bawah -->
+                        <button @click="retakeTest" class="text-rose-600 font-medium hover:text-rose-700 underline">Analisis Ulang</button>
                     </div>
                 </div>
                 
-                <div class="flex justify-end pt-4 border-t border-gray-200">
-                    <button @click="retakeTest" class="text-sm text-gray-500 hover:text-rose-600 flex items-center gap-2 px-4 py-2"><RefreshCw class="w-4 h-4" /> Analisis Ulang</button>
-                </div>
             </div>
         </div>
     </div>
