@@ -60,7 +60,7 @@ const navigateTo = (route: string) => {
 </script>
 
 <template>
-    <aside class="w-64 bg-white border-r border-rose-200 shadow-sm flex flex-col min-h-screen">
+    <aside class="w-64 bg-white border-r border-rose-200 shadow-sm flex flex-col h-screen sticky top-0">
         <div class="p-6 border-b border-rose-100">
             <div class="text-center cursor-pointer" @click="router.get('/')">
                 <div class="text-2xl font-light text-rose-800 bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
@@ -71,12 +71,10 @@ const navigateTo = (route: string) => {
                 </div>
             </div>
             
-            <!-- PROFILE SECTION (CLICKABLE) -->
             <div 
                 class="mt-4 p-3 bg-rose-50 rounded-lg border border-rose-200 cursor-pointer hover:bg-rose-100 hover:shadow-sm transition-all group relative"
                 @click="showCard = true"
             >
-                <!-- Tooltip Hint -->
                 <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
                     Klik untuk lihat kartu
                     <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
@@ -94,7 +92,6 @@ const navigateTo = (route: string) => {
                             {{ user?.email || '' }}
                         </p>
                         
-                        <!-- BADGE MEMBER -->
                         <span 
                             class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide w-fit"
                             :class="membershipColor"
@@ -132,7 +129,6 @@ const navigateTo = (route: string) => {
             </button>
         </nav>
         
-        <!-- MODAL KARTU MEMBER -->
         <MemberCardModal 
             v-if="user"
             :show="showCard" 

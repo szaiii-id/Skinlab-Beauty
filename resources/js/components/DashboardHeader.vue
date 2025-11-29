@@ -1,37 +1,45 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { router } from '@inertiajs/vue3';
-import { listenForMessages } from '@/firebase';
+import { listenForMessages } from '@/firebase'; // Ensure this path is correct
 import { 
     Bell, LogOut, Home, X, Trash2 
 } from 'lucide-vue-next';
 
 // --- STATE ---
-// Data dummy awal
+// Notification list
 const notifications = ref<Array<{ title: string; body: string; time: string }>>([]);
 
 const showToast = ref(false);
-const showDropdown = ref(false); // State untuk membuka dropdown
+const showDropdown = ref(false);
 const toastData = ref({ title: '', body: '' });
 let toastTimeout: any = null;
 
 // --- ACTIONS ---
-const logout = () => { router.post('/logout'); };
-const goHome = () => { router.get('/'); };
-const closeToast = () => { showToast.value = false; };
+const logout = () => { 
+    router.post('/logout'); 
+};
 
-// Toggle Dropdown Notifikasi
+const goHome = () => { 
+    router.get('/'); 
+};
+
+const closeToast = () => { 
+    showToast.value = false; 
+};
+
+// Toggle Notification Dropdown
 const toggleNotifications = () => {
     showDropdown.value = !showDropdown.value;
 };
 
-// Hapus Semua Notifikasi (Reset Badge)
+// Clear All (Reset Badge)
 const clearNotifications = () => {
     notifications.value = [];
     showDropdown.value = false;
 };
 
-// Hapus Satu Notifikasi
+// Remove Single Notification
 const removeNotification = (index: number) => {
     notifications.value.splice(index, 1);
 };
@@ -41,13 +49,16 @@ const playNotificationSound = () => {
         const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
         audio.volume = 0.5;
         audio.play().catch(() => {});
-    } catch (e) {}
+    } catch (e) {
+        console.error("Audio play failed", e);
+    }
 };
 
 // --- LIFECYCLE ---
 onMounted(() => {
+    // Listen to Firebase Cloud Messaging
     listenForMessages((payload: any) => {
-        // 1. Tampilkan Toast
+        // 1. Show Toast
         toastData.value = { title: payload.title, body: payload.body };
         showToast.value = true;
         playNotificationSound();
@@ -55,11 +66,11 @@ onMounted(() => {
         if (toastTimeout) clearTimeout(toastTimeout);
         toastTimeout = setTimeout(() => showToast.value = false, 5000);
 
-        // 2. Tambah ke List (Badge bertambah)
+        // 2. Add to List (Badge increment)
         notifications.value.unshift({
             title: payload.title,
             body: payload.body,
-            time: 'Baru saja'
+            time: 'Just now' // Changed to English
         });
     });
 });
@@ -69,19 +80,19 @@ onMounted(() => {
     <header class="bg-white border-b border-rose-200 shadow-sm sticky top-0 z-40 relative">
         <div class="flex items-center justify-between px-6 py-4">
             
-            <!-- Judul -->
+            <!-- Page Title -->
             <div>
                 <slot name="title"><h1 class="text-2xl font-light text-rose-800">Dashboard</h1></slot>
-                <slot name="subtitle"><p class="text-rose-600/80 text-sm mt-1">Selamat datang kembali</p></slot>
+                <slot name="subtitle"><p class="text-rose-600/80 text-sm mt-1">Welcome back</p></slot>
             </div>
             
             <!-- Actions -->
             <div class="flex items-center gap-3">
                 <button @click="goHome" class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-rose-600 border border-gray-200 hover:border-rose-300 rounded-lg hover:bg-rose-50 transition-all">
-                    <Home class="w-5 h-5" /> <span class="hidden sm:inline">Beranda</span>
+                    <Home class="w-5 h-5" /> <span class="hidden sm:inline">Home</span>
                 </button>
 
-                <!-- BUTTON NOTIFIKASI (Sekarang Bisa Diklik) -->
+                <!-- NOTIFICATION BUTTON -->
                 <div class="relative">
                     <button 
                         @click="toggleNotifications"
@@ -89,26 +100,26 @@ onMounted(() => {
                         :class="{'bg-rose-50 border-rose-400': showDropdown}"
                     >
                         <Bell class="w-5 h-5" />
-                        <span class="hidden sm:inline">Notifikasi</span>
+                        <span class="hidden sm:inline">Notifications</span>
                     </button>
                     
-                    <!-- Badge Merah -->
+                    <!-- Red Badge -->
                     <span v-if="notifications.length > 0" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-sm animate-pulse">
                         {{ notifications.length }}
                     </span>
 
-                    <!-- DROPDOWN LIST NOTIFIKASI (BARU) -->
+                    <!-- NOTIFICATION DROPDOWN -->
                     <div v-if="showDropdown" class="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
                         <div class="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                            <h3 class="font-semibold text-gray-700 text-sm">Notifikasi</h3>
+                            <h3 class="font-semibold text-gray-700 text-sm">Notifications</h3>
                             <button v-if="notifications.length > 0" @click="clearNotifications" class="text-xs text-rose-600 hover:text-rose-800 hover:underline">
-                                Tandai semua dibaca
+                                Mark all as read
                             </button>
                         </div>
                         
-                        <div class="max-h-64 overflow-y-auto">
+                        <div class="max-h-64 overflow-y-auto custom-scrollbar">
                             <div v-if="notifications.length === 0" class="p-6 text-center text-gray-400 text-sm">
-                                Tidak ada notifikasi baru.
+                                No new notifications.
                             </div>
                             <ul v-else>
                                 <li v-for="(notif, index) in notifications" :key="index" class="p-4 border-b border-gray-50 hover:bg-rose-50/50 transition-colors relative group">
@@ -118,7 +129,7 @@ onMounted(() => {
                                             <p class="text-xs text-gray-600 mt-1 leading-relaxed">{{ notif.body }}</p>
                                             <p class="text-[10px] text-gray-400 mt-2">{{ notif.time }}</p>
                                         </div>
-                                        <button @click="removeNotification(index)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                        <button @click="removeNotification(index)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1" title="Remove">
                                             <Trash2 class="w-4 h-4" />
                                         </button>
                                     </div>
@@ -130,13 +141,13 @@ onMounted(() => {
                 </div>
 
                 <button @click="logout" class="flex items-center gap-2 px-4 py-2 text-rose-600 hover:text-white border border-rose-300 hover:border-rose-600 hover:bg-rose-600 rounded-lg transition-all">
-                    <LogOut class="w-5 h-5" /> <span class="hidden sm:inline">Keluar</span>
+                    <LogOut class="w-5 h-5" /> <span class="hidden sm:inline">Logout</span>
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- TOAST (Sama seperti sebelumnya) -->
+    <!-- TOAST NOTIFICATION -->
     <Transition
         enter-active-class="transform ease-out duration-300 transition"
         enter-from-class="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
@@ -159,6 +170,12 @@ onMounted(() => {
         </div>
     </Transition>
     
-    <!-- Backdrop untuk menutup dropdown saat klik luar -->
+    <!-- Backdrop for Dropdown -->
     <div v-if="showDropdown" class="fixed inset-0 z-30" @click="showDropdown = false"></div>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar { width: 5px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+</style>
