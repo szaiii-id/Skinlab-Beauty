@@ -73,7 +73,7 @@ class ShippingService
                     'id'           => $rate['code'] . '-' . $rate['service'],
                     'courier_name' => strtoupper($rate['code']),
                     'service_type' => $rate['service'],
-                    'duration'     => !empty($rate['etd']) ? $rate['etd'] . ' HARI' : '-',
+                    'duration'     => !empty($rate['etd']) ? $rate['etd'] . ' ' : '-',
                     'price'        => $rate['cost'],
                     'description'  => $rate['description'] ?? ''
                 ];
