@@ -10,7 +10,7 @@ class ProductRepository
 {
     public function getAllProductsWithVariants(): LengthAwarePaginator
     {
-        return Product::with('variants', 'category', 'brand')
+        return Product::with(['variants', 'category', 'brand'])
             ->orderBy('name', 'asc') 
             ->paginate(12)
             ->appends(request()->query()); 
@@ -18,13 +18,14 @@ class ProductRepository
 
     public function findByIdWithVariants(int $id): ?Product
     {
-        return Product::with('variants', 'category', 'brand', 'reviews.user')
+        // Eager load reviews juga agar efisien
+        return Product::with(['variants', 'category', 'brand', 'reviews.user'])
             ->find($id);
     }
 
     public function getNewReleases(int $limit = 4): Collection
     {
-        return Product::with('variants', 'category', 'brand')
+        return Product::with(['variants', 'category', 'brand'])
             ->latest()
             ->take($limit)
             ->get();
@@ -32,7 +33,7 @@ class ProductRepository
 
     public function getBestSellers(int $limit = 4): Collection
     {
-        return Product::with('variants', 'category', 'brand')
+        return Product::with(['variants', 'category', 'brand'])
             ->oldest()
             ->take($limit)
             ->get();
@@ -40,7 +41,7 @@ class ProductRepository
 
     public function getProductsByCategoryId(int $categoryId): LengthAwarePaginator
     {
-        return Product::with('variants', 'category', 'brand')
+        return Product::with(['variants', 'category', 'brand'])
             ->where('category_id', $categoryId)
             ->orderBy('name', 'asc') 
             ->paginate(12)
@@ -49,7 +50,7 @@ class ProductRepository
         
     public function getProductsByBrandId(int $brandId): LengthAwarePaginator
     {
-        return Product::with('variants', 'category', 'brand')
+        return Product::with(['variants', 'category', 'brand'])
             ->where('brand_id', $brandId)
             ->orderBy('name', 'asc') 
             ->paginate(12)
@@ -58,9 +59,11 @@ class ProductRepository
 
     public function searchProducts(string $query): LengthAwarePaginator
     {
-        return Product::with('variants', 'category', 'brand')
-            ->where('name', 'LIKE', '%' . $query . '%')
-            ->orWhere('description', 'LIKE', '%' . $query . '%')
+        return Product::with(['variants', 'category', 'brand'])
+            ->where(function($q) use ($query) {
+                $q->where('name', 'LIKE', '%' . $query . '%')
+                  ->orWhere('description', 'LIKE', '%' . $query . '%');
+            })
             ->orWhereHas('brand', function ($q) use ($query) {
                 $q->where('name', 'LIKE', '%' . $query . '%');
             })
@@ -74,9 +77,11 @@ class ProductRepository
 
     public function getInstantSearchResult(string $query, int $limit = 8): Collection
     {
-        return Product::with('variants', 'category', 'brand')
-            ->where('name', 'LIKE', '%' . $query . '%')
-            ->orWhere('description', 'LIKE', '%' . $query . '%')
+        return Product::with(['variants', 'category', 'brand'])
+             ->where(function($q) use ($query) {
+                $q->where('name', 'LIKE', '%' . $query . '%')
+                  ->orWhere('description', 'LIKE', '%' . $query . '%');
+            })
             ->orWhereHas('brand', function ($q) use ($query) {
                 $q->where('name', 'LIKE', '%' . $query . '%');
             })

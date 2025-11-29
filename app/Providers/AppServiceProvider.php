@@ -2,8 +2,17 @@
 
 namespace App\Providers;
 
+use App\Models\Brand;
+use App\Models\Category;
+use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\PromoBanner;
 use App\Models\UserAddress;
+use App\Observers\BrandObserver;
+use App\Observers\CategoryObserver;
+use App\Observers\ProductObserver;
+use App\Observers\PromoBannerObserver;
+use App\Observers\VariantObserver;
 use App\Repositories\AddressRepository;
 use App\Services\AddressService;
 use App\Services\OpenStreetMapService;
@@ -37,6 +46,11 @@ class AppServiceProvider extends ServiceProvider
         });
         
         JsonResource::withoutWrapping();
-        PromoBanner::observe(\App\Observers\PromoBannerObserver::class);
+
+        PromoBanner::observe(PromoBannerObserver::class);
+        Product::observe(ProductObserver::class);
+        ProductVariant::observe(VariantObserver::class);
+        Brand::observe(BrandObserver::class);
+        Category::observe(CategoryObserver::class);
     }
 }

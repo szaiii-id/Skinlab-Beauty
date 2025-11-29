@@ -64,7 +64,7 @@ class HandleInertiaRequests extends Middleware
             ],
 
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->user() ? $request->user()->load('membership') : null,
                 // HAPUS wishlistCount dari sini, sudah ada di atas
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',

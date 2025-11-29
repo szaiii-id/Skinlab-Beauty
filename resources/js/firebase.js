@@ -37,14 +37,25 @@ export const requestPermission = async () => {
     }
 }
 
-// 2. LISTENER FOREGROUND (Saat Tab Dibuka)
-// Fungsi ini menerima 'callback' agar UI bisa bereaksi
+// ... import ...
+
+// Tambahkan ini di dalam listenForMessages
 export const listenForMessages = (callback) => {
     onMessage(messaging, (payload) => {
         console.log("Pesan Foreground diterima:", payload);
         
-        // Panggil callback yang dikirim dari Vue Component
-        // Kita kirim Title & Body
+        // Simpan notifikasi ke localStorage agar bisa dibaca komponen lain
+        const currentNotifs = JSON.parse(localStorage.getItem('notifications') || '[]');
+        currentNotifs.unshift({
+            title: payload.notification.title,
+            body: payload.notification.body,
+            time: new Date().toLocaleTimeString()
+        });
+        localStorage.setItem('notifications', JSON.stringify(currentNotifs));
+        
+        // Dispatch event agar komponen lain tahu ada update
+        window.dispatchEvent(new Event('notification-updated'));
+
         if (callback) {
             callback({
                 title: payload.notification.title,
@@ -53,8 +64,6 @@ export const listenForMessages = (callback) => {
             });
         }
 
-        // Opsional: Tetap coba trigger notifikasi sistem juga
-        // (Siapa tahu user pindah tab pas notif masuk)
         new Notification(payload.notification.title, {
             body: payload.notification.body,
             icon: '/favicon.ico'

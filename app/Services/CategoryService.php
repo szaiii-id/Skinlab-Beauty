@@ -9,9 +9,8 @@ use Illuminate\Support\Facades\Cache;
 
 class CategoryService
 {
-    private const CACHE_KEY_ALL_CATEGORIES = 'categories:all';
-    private const CACHE_PREFIX_SLUG = 'category:slug:';
-    private const CACHE_TTL = 3600;
+    private const CACHE_TAG_CATEGORIES = 'categories';
+    private const CACHE_TTL = 86400; // 24 Jam
     
     protected CategoryRepository $categoryRepository;
 
@@ -22,8 +21,8 @@ class CategoryService
 
     public function getAllCategories(): Collection
     {
-        return Cache::remember(
-            self::CACHE_KEY_ALL_CATEGORIES, 
+        return Cache::tags([self::CACHE_TAG_CATEGORIES])->remember(
+            'categories:all', 
             self::CACHE_TTL, 
             function () {
                 return $this->categoryRepository->getAllCategories();
@@ -33,10 +32,8 @@ class CategoryService
 
     public function findBySlug(string $slug): ?Category
     {
-        $cacheKey = self::CACHE_PREFIX_SLUG . $slug;
-
-        return Cache::remember(
-            $cacheKey,
+        return Cache::tags([self::CACHE_TAG_CATEGORIES])->remember(
+            "category:slug:{$slug}",
             self::CACHE_TTL,
             function () use ($slug) {
                 return $this->categoryRepository->findBySlug($slug);
@@ -44,12 +41,6 @@ class CategoryService
         );
     }
 
-    /**
-     * Find category by ID
-     *
-     * @param int $id
-     * @return Category|null
-     */
     public function findById(int $id): ?Category
     {
         return $this->categoryRepository->findById($id);

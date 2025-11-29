@@ -6,6 +6,7 @@ use App\Models\PointTransaction;
 use App\Models\UserReward;
 use App\Models\Reward;
 use App\Models\User;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -61,5 +62,23 @@ class PointService
 
             return $userReward;
         });
+    }
+
+    public function deductPoints(User $user, int $amount, string $type, string $description): void
+    {
+        if ($user->current_points < $amount) {
+            throw new Exception("Not enough points.");
+        }
+
+        // Create negative transaction
+        PointTransaction::create([
+            'user_id' => $user->id,
+            'amount' => -$amount, // Negative value
+            'source_type' => $type,
+            'description' => $description,
+            'current_balance' => $user->current_points - $amount
+        ]);
+
+        $user->decrement('current_points', $amount);
     }
 }

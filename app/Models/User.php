@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Cache;
@@ -129,5 +130,17 @@ class User extends Authenticatable
     public function scopeWithWishlistCount($query)
     {
         return $query->withCount(['wishlistItems as wishlist_count']);
+    }
+
+    /**
+     * Relasi ke Membership
+     * Menggunakan withDefault agar tidak error jika data belum ada (dianggap Bronze)
+     */
+    public function membership(): HasOne
+    {
+        return $this->hasOne(UserMembership::class)->withDefault([
+            'tier' => 'Bronze',
+            'total_spend' => 0
+        ]);
     }
 }

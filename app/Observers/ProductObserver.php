@@ -7,39 +7,28 @@ use Illuminate\Support\Facades\Cache;
 
 class ProductObserver
 {
+    // Tag ini adalah kunci utama agar kita bisa menghapus sekelompok cache sekaligus
+    private const CACHE_TAG_PRODUCTS = 'products';
 
-    private const CACHE_KEY = 'products:all';
-    /**
-     * Handle the Product "saved" event.
-     */
+    public $afterCommit = true;
+
     public function saved(Product $product): void
     {
-        Cache::forget(self::CACHE_KEY);
+        $this->clearProductCache($product);
     }
-    
-    
-    
-    /**
-     * Handle the Product "deleted" event.
-     */
+
     public function deleted(Product $product): void
     {
-        Cache::forget(self::CACHE_KEY);
+        $this->clearProductCache($product);
     }
 
-    /**
-     * Handle the Product "restored" event.
-     */
-    public function restored(Product $product): void
+    private function clearProductCache(Product $product): void
     {
-        //
-    }
+        // 1. Hapus cache detail produk spesifik ini
+        Cache::tags([self::CACHE_TAG_PRODUCTS])->forget("product:detail:{$product->id}");
 
-    /**
-     * Handle the Product "force deleted" event.
-     */
-    public function forceDeleted(Product $product): void
-    {
-        //
+        // 2. Hapus semua halaman list (Kategori, Brand, Index) 
+        // Ini penting agar jika harga/nama berubah, list di halaman depan langsung update
+        Cache::tags([self::CACHE_TAG_PRODUCTS])->flush();
     }
 }

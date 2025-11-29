@@ -8,9 +8,9 @@ use Illuminate\Support\Facades\Cache;
 
 class BrandService
 {
-    private const CACHE_KEY_ALL_BRANDS = 'brands:all';
-    private const CACHE_PREFIX_SLUG = 'brand:slug:';
-    private const CACHE_TTL = 3600;
+    // Tag khusus untuk grouping cache Brand
+    private const CACHE_TAG_BRANDS = 'brands'; 
+    private const CACHE_TTL = 86400; // 24 Jam (Data Master jarang berubah)
 
     protected BrandRepository $brandRepository;
 
@@ -21,8 +21,9 @@ class BrandService
 
     public function getAllBrands()
     {
-        return Cache::remember(
-            self::CACHE_KEY_ALL_BRANDS,
+        // Menggunakan tags()
+        return Cache::tags([self::CACHE_TAG_BRANDS])->remember(
+            'brands:all',
             self::CACHE_TTL,
             function () {
                return $this->brandRepository->getAllBrands(); 
@@ -32,10 +33,8 @@ class BrandService
 
     public function findBySlug(string $slug): ?Brand
     {
-        $cacheKey = self::CACHE_PREFIX_SLUG . $slug;
-
-        return Cache::remember(
-            $cacheKey,
+        return Cache::tags([self::CACHE_TAG_BRANDS])->remember(
+            "brand:slug:{$slug}",
             self::CACHE_TTL,
             function () use ($slug) {
                 return $this->brandRepository->findBySlug($slug);
@@ -43,14 +42,10 @@ class BrandService
         );
     }
 
-    /**
-     * Find brand by ID
-     *
-     * @param int $id
-     * @return Brand|null
-     */
     public function findById(int $id): ?Brand
     {
+        // Biasanya pencarian by ID untuk internal logic, tidak perlu cache ketat
+        // kecuali digunakan di front-end secara masif.
         return $this->brandRepository->findById($id);
     }
 }

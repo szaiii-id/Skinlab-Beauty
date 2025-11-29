@@ -4,67 +4,27 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\UserAddress;
+use App\Services\AddressService;
+use App\Services\GeocodingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http; 
 
 class AddressController extends Controller
 {
+    protected AddressService $addressService;
+    protected GeocodingService $geocodingService;
 
-/**
-     * PENCARIAN FINAL: Bersihkan Nama & Ambil Hasil Pertama
-     */
-    private function findKomerceId($districtName, $cityName, $postalCode)
+    public function __construct(AddressService $addressService, GeocodingService $geocodingService)
     {
-        $apiKey = config('rajaongkir.api_key');
-        $baseUrl = 'https://rajaongkir.komerce.id/api/v1/destination/domestic-destination';
-
-        try {
-            // 1. BERSIHKAN NAMA (Hapus 'KOTA' atau 'KABUPATEN ' agar pencarian akurat)
-            // Contoh: "KOTA BANJARMASIN" -> "BANJARMASIN"
-            $cleanCity = str_replace(['KOTA ', 'KABUPATEN '], '', strtoupper($cityName));
-            $cleanDistrict = strtoupper($districtName);
-
-            // 2. Query Spesifik: "KECAMATAN KOTA"
-            // Contoh: "BANJARMASIN UTARA BANJARMASIN"
-            $query = "$cleanDistrict $cleanCity"; 
-            
-            Log::info("🔍 Searching Komerce: " . $query);
-
-            $response = Http::withHeaders(['key' => $apiKey])
-                ->get($baseUrl, ['search' => $query]);
-
-            if ($response->successful()) {
-                $results = $response->json()['data'] ?? [];
-
-                // LOG untuk mengintip apa sih balasan API sebenarnya?
-                if (!empty($results)) {
-                    Log::info("📦 API Raw Response (Top 1): " . json_encode($results[0]));
-                }
-
-                // 3. AMBIL HASIL PERTAMA (BEST MATCH)
-                // Karena kita sudah mencari dengan query spesifik "Kecamatan + Kota",
-                // hasil urutan pertama biasanya 99% benar.
-                if (!empty($results)) {
-                    $firstResult = $results[0];
-                    Log::info("✅ MATCH FOUND: " . $firstResult['label'] . " -> ID: " . $firstResult['id']);
-                    return $firstResult['id'];
-                }
-            } else {
-                Log::error("❌ API Fail: " . $response->body());
-            }
-
-        } catch (\Exception $e) {
-            Log::error("Error Auto-Map: " . $e->getMessage());
-        }
-
-        Log::warning("⛔ Tetap tidak ketemu ID untuk: $query");
-        return null; 
+        $this->addressService = $addressService;
+        $this->geocodingService = $geocodingService;
     }
 
+    /**
+     * Get all addresses for current user
+     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -81,317 +41,128 @@ class AddressController extends Controller
                 'message' => 'Addresses retrieved successfully'
             ]);
         } catch (\Exception $e) {
-            Log::error('Error retrieving addresses: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to retrieve addresses'
-            ], 500);
+            Log::error('Get Addresses Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to retrieve addresses'], 500);
         }
     }
 
+    /**
+     * Create new address
+     */
     public function store(Request $request): JsonResponse
     {
+        $validator = Validator::make($request->all(), [
+            'receiver_name' => 'required|string|max:100',
+            'phone_number' => 'required|string|max:20',
+            'province_code' => 'required|string',
+            'city_code' => 'required|string',
+            'district_code' => 'required|string',
+            'full_address' => 'required|string|max:500',
+            'postal_code' => 'required|string|max:10',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'type' => 'required|in:home,office,other',
+            'is_default' => 'boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
         try {
-            Log::info('Store address request:', $request->all());
-
-            $validator = Validator::make($request->all(), [
-                'receiver_name' => 'required|string|max:100',
-                'phone_number' => 'required|string|max:20',
-                'province_code' => 'required|string',
-                'city_code' => 'required|string',
-                'district_code' => 'required|string',
-                'full_address' => 'required|string|max:500',
-                'postal_code' => 'required|string|max:10',
-                'latitude' => 'nullable|numeric|between:-90,90',
-                'longitude' => 'nullable|numeric|between:-180,180',
-                'type' => 'required|in:home,office,other',
-                'is_default' => 'boolean',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            $data = $validator->validated();
-            $data['user_id'] = $request->user()->id;
-            $data['is_default'] = $data['is_default'] ?? false;
-            $data['is_active'] = true;
-
-            // --- [LOGIC BARU: AUTO MAPPING KOMERCE] ---
-            // Ambil nama wilayah dari Laravolt untuk pencarian API
-            $district = \Laravolt\Indonesia\Models\District::where('code', $data['district_code'])->first();
-            $city = \Laravolt\Indonesia\Models\City::where('code', $data['city_code'])->first();
-
-            if ($district && $city) {
-                // Cari ID Komerce secara otomatis
-                $komerceId = $this->findKomerceId($district->name, $city->name, $data['postal_code']);
-                
-                // Simpan ke array data untuk dimasukkan ke DB
-                $data['komerce_destination_id'] = $komerceId;
-                
-                Log::info("Auto-Mapping Result: {$district->name} -> ID {$komerceId}");
-            }
-            // ------------------------------------------
-
-            DB::transaction(function () use ($data) {
-                if ($data['is_default']) {
-                    UserAddress::where('user_id', $data['user_id'])
-                        ->where('is_default', true)
-                        ->update(['is_default' => false]);
-                }
-                UserAddress::create($data);
-            });
+            $this->addressService->createAddress($request->user()->id, $validator->validated());
 
             return response()->json([
                 'success' => true,
                 'message' => 'Address created successfully'
             ], 201);
-
         } catch (\Exception $e) {
-            Log::error('Error creating address: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create address: ' . $e->getMessage()
-            ], 500);
+            Log::error('Create Address Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to create address'], 500);
         }
     }
 
+    /**
+     * Update existing address
+     */
     public function update(Request $request, $id): JsonResponse
     {
+        $userId = $request->user()->id;
+        $address = UserAddress::where('user_id', $userId)->find($id);
+
+        if (!$address) {
+            return response()->json(['success' => false, 'message' => 'Address not found'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'receiver_name' => 'sometimes|string|max:100',
+            'phone_number' => 'sometimes|string|max:20',
+            'province_code' => 'sometimes|string',
+            'city_code' => 'sometimes|string',
+            'district_code' => 'sometimes|string',
+            'full_address' => 'sometimes|string|max:500',
+            'postal_code' => 'sometimes|string|max:10',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'type' => 'sometimes|in:home,office,other',
+            'is_default' => 'boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
         try {
-            $validator = Validator::make($request->all(), [
-                'receiver_name' => 'sometimes|string|max:100',
-                'phone_number' => 'sometimes|string|max:20',
-                'province_code' => 'sometimes|string',
-                'city_code' => 'sometimes|string',
-                'district_code' => 'sometimes|string',
-                'full_address' => 'sometimes|string|max:500',
-                'postal_code' => 'sometimes|string|max:10',
-                'latitude' => 'nullable|numeric|between:-90,90',
-                'longitude' => 'nullable|numeric|between:-180,180',
-                'type' => 'sometimes|in:home,office,other',
-                'is_default' => 'sometimes|boolean',
-            ]);
+            $this->addressService->updateAddress($address, $validator->validated());
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            $data = $validator->validated();
-            $userId = $request->user()->id;
-            
-            $address = UserAddress::where('user_id', $userId)->where('id', $id)->first();
-
-            if (!$address) {
-                return response()->json(['success' => false, 'message' => 'Address not found'], 404);
-            }
-
-            // --- [LOGIC BARU: UPDATE MAPPING] ---
-            // Hanya jalankan pencarian jika Lokasi atau Kode Pos berubah
-            $locationChanged = isset($data['district_code']) || isset($data['city_code']) || isset($data['postal_code']);
-            
-            if ($locationChanged) {
-                // Gunakan data baru jika ada, atau fallback ke data lama di DB
-                $districtCode = $data['district_code'] ?? $address->district_code;
-                $cityCode = $data['city_code'] ?? $address->city_code;
-                $postalCode = $data['postal_code'] ?? $address->postal_code;
-
-                $district = \Laravolt\Indonesia\Models\District::where('code', $districtCode)->first();
-                $city = \Laravolt\Indonesia\Models\City::where('code', $cityCode)->first();
-
-                if ($district && $city) {
-                    // Cari ID Baru
-                    $komerceId = $this->findKomerceId($district->name, $city->name, $postalCode);
-                    $data['komerce_destination_id'] = $komerceId;
-                    
-                    Log::info("Update Auto-Mapping Result: {$district->name} -> ID {$komerceId}");
-                }
-            }
-            // ------------------------------------
-
-            if (isset($data['is_default'])) {
-                $data['is_default'] = (bool)$data['is_default'];
-            }
-
-            DB::transaction(function () use ($address, $data, $userId) {
-                if (isset($data['is_default']) && $data['is_default']) {
-                    UserAddress::where('user_id', $userId)
-                        ->where('id', '!=', $address->id)
-                        ->where('is_default', true)
-                        ->update(['is_default' => false]);
-                }
-                $address->update($data);
-            });
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Address updated successfully'
-            ]);
-
+            return response()->json(['success' => true, 'message' => 'Address updated successfully']);
         } catch (\Exception $e) {
-            Log::error('Error updating address: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update address: ' . $e->getMessage()
-            ], 500);
+            Log::error('Update Address Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to update address'], 500);
         }
     }
 
-    // ... Function geocode, reverseGeocode, destroy, setDefault, getDefault TETAP SAMA ...
-    // (Biarkan kode di bawah ini apa adanya seperti file asli Anda)
-
-    public function geocode(Request $request): JsonResponse
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'address' => 'required|string|max:500',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            $address = $request->input('address');
-            
-            $response = file_get_contents(
-                'https://nominatim.openstreetmap.org/search?format=json&q=' . 
-                urlencode($address) . '&limit=5&countrycodes=id'
-            );
-            
-            $results = json_decode($response, true);
-
-            return response()->json([
-                'success' => true,
-                'data' => $results,
-                'message' => 'Geocoding results retrieved successfully'
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Geocoding error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to geocode address'
-            ], 500);
-        }
-    }
-
-    public function reverseGeocode(Request $request): JsonResponse
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'lat' => 'required|numeric|between:-90,90',
-                'lng' => 'required|numeric|between:-180,180',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            $lat = $request->input('lat');
-            $lng = $request->input('lng');
-            
-            $response = file_get_contents(
-                "https://nominatim.openstreetmap.org/reverse?format=json&lat={$lat}&lon={$lng}&zoom=18&addressdetails=1"
-            );
-            
-            $result = json_decode($response, true);
-
-            return response()->json([
-                'success' => true,
-                'data' => $result,
-                'message' => 'Reverse geocoding result retrieved successfully'
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Reverse geocoding error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to reverse geocode coordinates'
-            ], 500);
-        }
-    }
-
+    /**
+     * Delete address
+     */
     public function destroy(Request $request, $id): JsonResponse
     {
         try {
-            $userId = $request->user()->id;
-            $address = UserAddress::where('user_id', $userId)->where('id', $id)->first();
+            $deleted = $this->addressService->deleteAddress($request->user()->id, $id);
 
-            if (!$address) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Address not found'
-                ], 404);
+            if (!$deleted) {
+                return response()->json(['success' => false, 'message' => 'Address not found'], 404);
             }
 
-            $address->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Address deleted successfully'
-            ]);
+            return response()->json(['success' => true, 'message' => 'Address deleted successfully']);
         } catch (\Exception $e) {
-            Log::error('Error deleting address: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete address: ' . $e->getMessage()
-            ], 500);
+            Log::error('Delete Address Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to delete address'], 500);
         }
     }
 
+    /**
+     * Set address as default
+     */
     public function setDefault(Request $request, $id): JsonResponse
     {
         try {
-            $userId = $request->user()->id;
+            $success = $this->addressService->setAsDefault($request->user()->id, $id);
             
-            $address = UserAddress::where('user_id', $userId)->where('id', $id)->first();
-            
-            if (!$address) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Address not found'
-                ], 404);
+            if (!$success) {
+                return response()->json(['success' => false, 'message' => 'Address not found'], 404);
             }
-            
-            DB::transaction(function () use ($userId, $id) {
-                UserAddress::where('user_id', $userId)
-                    ->where('is_default', true)
-                    ->update(['is_default' => false]);
 
-                UserAddress::where('user_id', $userId)
-                    ->where('id', $id)
-                    ->update(['is_default' => true]);
-            });
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Default address set successfully'
-            ]);
+            return response()->json(['success' => true, 'message' => 'Default address set successfully']);
         } catch (\Exception $e) {
-            Log::error('Error setting default address: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to set default address: ' . $e->getMessage()
-            ], 500);
+            Log::error('Set Default Address Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to set default address'], 500);
         }
     }
 
+    /**
+     * Get default address
+     */
     public function getDefault(Request $request): JsonResponse
     {
         try {
@@ -407,11 +178,61 @@ class AddressController extends Controller
                 'message' => 'Default address retrieved successfully'
             ]);
         } catch (\Exception $e) {
-            Log::error('Error retrieving default address: ' . $e->getMessage());
+            Log::error('Get Default Address Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to retrieve default address'], 500);
+        }
+    }
+
+    /**
+     * Geocode address to coordinates
+     */
+    public function geocode(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'address' => 'required|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $results = $this->geocodingService->search($request->address);
             return response()->json([
-                'success' => false,
-                'message' => 'Failed to retrieve default address'
-            ], 500);
+                'success' => true, 
+                'data' => $results, 
+                'message' => 'Geocoding results retrieved'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Geocode Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Geocoding failed'], 500);
+        }
+    }
+
+    /**
+     * Reverse geocode coordinates to address
+     */
+    public function reverseGeocode(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'lat' => 'required|numeric|between:-90,90',
+            'lng' => 'required|numeric|between:-180,180',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $result = $this->geocodingService->reverse($request->lat, $request->lng);
+            return response()->json([
+                'success' => true, 
+                'data' => $result, 
+                'message' => 'Reverse geocoding result retrieved'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Reverse Geocode Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Reverse Geocoding failed'], 500);
         }
     }
 }

@@ -8,11 +8,11 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ReviewController;
-use App\Http\Controllers\WhislistController;
 use App\Http\Controllers\OrderReturnController;
 use App\Http\Controllers\RewardController;
 use App\Http\Controllers\SkinAnalysisController;
 use App\Http\Controllers\SkincareRoutineController;
+use App\Http\Controllers\WishlistController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -59,11 +59,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/my-account', fn() => Inertia::render('Account/Index'))->name('account.index');
     
     // Wishlist & Orders
-    Route::get('/wishlist', [WhislistController::class, 'index'])->name('wishlist.index');
-    Route::post('/wishlist', [WhislistController::class, 'store'])->name('wishlist.store');
-    Route::delete('/wishlist/{variant}', [WhislistController::class, 'destroy'])->name('wishlist.destroy');
-    Route::post('/wishlist/{variant}/move-to-cart', [WhislistController::class, 'moveToCart'])->name('wishlist.move-to-cart');
-    Route::get('/wishlist/status', [WhislistController::class, 'status'])->name('wishlist.status');
+    Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
+    Route::post('/wishlist', [WishlistController::class, 'store'])->name('wishlist.store');
+    Route::delete('/wishlist/{variant}', [WishlistController::class, 'destroy'])->name('wishlist.destroy');
+    Route::post('/wishlist/{variant}/move-to-cart', [WishlistController::class, 'moveToCart'])->name('wishlist.move-to-cart');
+    Route::get('/wishlist/status', [WishlistController::class, 'status'])->name('wishlist.status');
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
 
     // riview product
@@ -84,6 +84,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/my-routine/{id}', [SkincareRoutineController::class, 'update'])->name('routine.update');
     Route::post('/my-routine/{id}/toggle', [SkincareRoutineController::class, 'toggleCheck'])->name('routine.toggle');
     Route::delete('/my-routine/{id}', [SkincareRoutineController::class, 'destroy'])->name('routine.destroy');
+        Route::delete('/my-routine/{id}/group', [SkincareRoutineController::class, 'destroyGroup'])->name('routine.destroy-group');
     
     // rewards
     Route::get('/rewards', [RewardController::class, 'index'])->name('rewards.index');
