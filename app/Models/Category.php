@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Scout\Searchable;
 
 class Category extends Model
 {
-    use HasFactory;
+    use HasFactory, Searchable;
 
     /** 
      * 
@@ -18,6 +19,16 @@ class Category extends Model
         'name',
         'slug',
     ];
+
+    public function toSearchableArray()
+    {
+        return [
+            'id' => (int) $this->id,
+            'name' => $this->name,
+            'slug' => $this->slug,
+            'created_at' => $this->created_at,
+        ];
+    }
 
     /**
      * Get all of the products for the Category

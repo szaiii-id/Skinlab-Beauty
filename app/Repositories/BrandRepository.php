@@ -1,36 +1,42 @@
-<?php
+<?php 
 
 namespace App\Repositories;
 
 use App\Models\Brand;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Collection; // Saya perjelas tipe Collection-nya
 
 class BrandRepository
 {
+    // --- EXISTING METHODS (DO NOT CHANGE) ---
     public function getAllBrands(): Collection
     {
         return Brand::orderBy('name', 'asc')->get();
-    }    
+    }
 
-    /**
-     * Find brand by slug
-     *
-     * @param string $slug
-     * @return Brand|null
-     */
     public function findBySlug(string $slug): ?Brand
     {
         return Brand::where('slug', $slug)->first();
     }
 
-    /**
-     * Find brand by ID
-     *
-     * @param int $id
-     * @return Brand|null
-     */
     public function findById(int $id): ?Brand
     {
         return Brand::find($id);
+    }
+
+    // --- NEW ADMIN METHODS (WRITE) ---
+
+    public function create(array $data): Brand
+    {
+        return Brand::create($data);
+    }
+
+    public function update(Brand $brand, array $data): bool
+    {
+        return $brand->update($data);
+    }
+
+    public function delete(Brand $brand): bool
+    {
+        return $brand->delete();
     }
 }
