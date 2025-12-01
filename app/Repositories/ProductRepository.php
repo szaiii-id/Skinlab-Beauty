@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class ProductRepository
 {
@@ -92,4 +93,42 @@ class ProductRepository
             ->take($limit)
             ->get();
     }
+
+    public function createProductWithVariants(array $productData, array $variantsData): Product
+    {
+        return DB::transaction(function () use ($productData, $variantsData) {
+            
+            $product = Product::create($productData);
+
+            foreach ($variantsData as $variant) {
+                $variant['product_id'] = $product->id;
+                $product->variants()->create($variant);
+            }
+
+            return $product;
+        });
+    }
+
+    public function updateProductWithVariants(Product $product, array $productData, array $variantsData): Product
+    {
+        return DB::transaction(function () use ($product, $productData, $variantsData) {
+            
+            $product->update($productData);
+            foreach ($variantsData as $variant) {
+                if (isset($variant['id'])) {
+                    $product->variants()->where('id', $variant['id'])->update($variant);
+                } else {
+                    $product->variants()->create($variant);
+                }
+            }
+
+            return $product;
+        });
+    }
+
+    public function delete(Product $product): bool
+    {
+        return $product->delete();
+    }
+
 }

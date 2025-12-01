@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class ProductVariant extends Model
 {
@@ -16,7 +17,7 @@ class ProductVariant extends Model
         'volume',
         'color_shade',
         'price',
-        'stok',
+        'stock',
         'sku',
         'image_url'
     ];
@@ -38,5 +39,16 @@ class ProductVariant extends Model
     public function orderItens(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function getImageUrlAttribute($value)
+    {
+        if (!$value) return null;
+
+        if (str_contains($value, 'http')) {
+            return $value;
+        }
+
+        return Storage::url($value);
     }
 }

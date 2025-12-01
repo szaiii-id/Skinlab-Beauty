@@ -2,12 +2,16 @@
 
 namespace App\Services;
 
+use App\Models\Product;
 use App\Models\User;
 use App\Models\UserSkinProfile;
 use App\Repositories\ProductRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ProductService
 {
@@ -147,5 +151,89 @@ class ProductService
                 'skin_type' => $profile->skin_type
             ];
         });
+    }
+
+    // --- ADMIN SEARCH (ELASTICSEARCH) ---
+    public function searchForAdmin(string $query = '', int $perPage = 10): LengthAwarePaginator
+    {
+        if (empty($query)) {
+            // Eager load variants count untuk info di tabel
+            return Product::with(['category', 'brand'])
+                ->withCount('variants')
+                ->latest()
+                ->paginate($perPage);
+        }
+
+        // Search via Scout (Nama, Desc, Brand, SKU Varian)
+        return Product::search("*{$query}*")
+            ->query(fn ($q) => $q->with(['category', 'brand'])->withCount('variants'))
+            ->paginate($perPage);
+    }
+
+    // --- CREATE LOGIC ---
+    public function createProduct(array $data, ?UploadedFile $thumbnail, array $variants): Product
+    {
+        $disk = config('filesystems.default', 'public'); // 'public' atau 'gcs'
+
+        // 1. Handle Thumbnail
+        if ($thumbnail) {
+            $filename = Str::slug($data['name']) . '-' . Str::random(10) . '.' . $thumbnail->getClientOriginalExtension();
+            
+            // SIMPAN PATH SAJA (Tanpa http://...)
+            // Contoh hasil: "products/serum-wajah.jpg"
+            // Simpan di public/uploads/products/
+            $path = $thumbnail->storeAs('products', $filename, $disk);
+            
+            $data['thumbnail'] = $path; 
+        }
+
+        $data['slug'] = Str::slug($data['name']) . '-' . Str::random(4);
+
+        // 3. Process Variants
+        foreach ($variants as &$variant) {
+            if (empty($variant['sku'])) {
+                $variant['sku'] = 'SLB-' . date('y') . strtoupper(Str::random(5));
+            }
+
+            if (isset($variant['image_file']) && $variant['image_file'] instanceof UploadedFile) {
+                $vFilename = $variant['sku'] . '-' . Str::random(6) . '.' . $variant['image_file']->getClientOriginalExtension();
+                
+                // SIMPAN PATH SAJA
+                $vPath = $variant['image_file']->storeAs('products/variants', $vFilename, $disk);
+                
+                $variant['image_url'] = $vPath;
+            }
+        }
+
+        $product = $this->productRepository->createProductWithVariants($data, $variants);
+        $this->invalidateCache();
+
+        return $product;
+    }
+
+    /**
+     * DELETE PRODUCT
+     * Menghapus produk dari DB, Elastic, dan Cache.
+     */
+    public function deleteProduct(int $id): bool
+    {
+        $product = \App\Models\Product::find($id);
+
+        if (!$product) {
+            return false;
+        }
+
+        $deleted = $this->productRepository->delete($product);
+
+        if ($deleted) {
+            $this->invalidateCache();
+        }
+
+        return $deleted;
+    }
+
+    private function invalidateCache(): void
+    {
+        Cache::tags([self::CACHE_TAG_PRODUCTS])->flush();
     }
 }
