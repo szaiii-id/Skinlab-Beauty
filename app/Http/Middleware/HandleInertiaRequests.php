@@ -50,11 +50,15 @@ class HandleInertiaRequests extends Middleware
             'cartCount' => fn () => count($request->session()->get('cart', [])),
             'wishlistCount' => fn () => count($request->session()->get('wishlist', [])), // HANYA SATU INI
             'promoBanners' => fn () => resolve(PromoBannerService::class)->getActiveBanners(),
-            'pendingOrdersCount' => $request->user() 
-            ? \App\Models\Order::where('user_id', $request->user()->id)
-                ->whereIn('order_status', ['pending', 'paid', 'shipped']) // Status yang dianggap "Belum Selesai"
-                ->count() 
-            : 0,
+            'pendingOrdersCount' => function () use ($request) {
+                // Cek: Hanya jalankan query ini jika yang login adalah USER ASLI (Bukan Admin)
+                if ($request->user() && $request->user() instanceof \App\Models\User) {
+                    return \App\Models\Order::where('user_id', $request->user()->id)
+                        ->whereIn('order_status', ['pending', 'paid', 'shipped'])
+                        ->count();
+                }
+                return 0; // Jika Admin atau Tamu, return 0
+            },
             // 'Flash message' untuk Pop-up Modal Sukses
             'flash' => [
                 'success' => fn () => $request->session()->get('toast_success'),
@@ -63,9 +67,14 @@ class HandleInertiaRequests extends Middleware
                 'snap_token' => fn () => $request->session()->get('snap_token'),
             ],
 
+            // KODE BARU (SOLUSI)
             'auth' => [
-                'user' => $request->user() ? $request->user()->load('membership') : null,
-                // HAPUS wishlistCount dari sini, sudah ada di atas
+                'user' => $request->user() ? (
+                    // Cek apakah user ini adalah instance dari model User (Pelanggan)
+                    $request->user() instanceof \App\Models\User 
+                        ? $request->user()->load('membership') // Jika User, load membership
+                        : $request->user() // Jika Admin, biarkan apa adanya (jangan load membership)
+                ) : null,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

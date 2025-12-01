@@ -18,12 +18,11 @@ class UserSeeder extends Seeder
             'name' => 'Admin Skin Lab',
             'email' => 'admin@skinlab.test',
             'password' => bcrypt('admin123'),
-            'role' => 'admin',
+            // 'role' => 'admin',
         ]);
 
         User::factory(5)->create([
-            'role' => 'user',
-            'password' => bcrypt('bahlil'),
+            'password' => bcrypt('bahlil123'),
         ]);
     }
 }
