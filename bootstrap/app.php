@@ -1,9 +1,10 @@
 <?php
-// [file name]: bootstrap/app.php
 
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth; // <--- Tambahan Penting
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -14,9 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->validateCsrfTokens(except: [
-            'api/midtrans-callback', // Izinkan URL ini
+            'api/midtrans-callback',
         ]);
-        // ✅ SANCTUM MIDDLEWARE UNTUK API AUTH
+        
         $middleware->api(prepend: [
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
@@ -25,15 +26,32 @@ return Application::configure(basePath: dirname(__DIR__))
             'verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
         ]);
         
-        // Encrypt cookies except
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
         
-        // Web middleware
         $middleware->web(append: [
             \App\Http\Middleware\HandleAppearance::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        // 1. REDIRECT JIKA TAMU MENCOBA MASUK HALAMAN PROTECTED
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('skinlab-center*')) {
+                return route('admin.login'); 
+            }
+            return route('login'); 
+        });
+
+        // 2. REDIRECT JIKA ORANG YANG SUDAH LOGIN MENCOBA BUKA HALAMAN LOGIN (Fix Masalah Anda)
+        $middleware->redirectUsersTo(function (Request $request) {
+            // Jika yang login adalah Admin, lempar ke Dashboard Admin
+            if (Auth::guard('admin')->check()) {
+                return route('admin.dashboard');
+            }
+            // Default: Dashboard User
+            return route('dashboard');
+        });
+
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

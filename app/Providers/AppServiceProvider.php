@@ -20,6 +20,7 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -44,6 +45,10 @@ class AppServiceProvider extends ServiceProvider
                 'email' => $event->user->email
             ]);
         });
+
+        if (str_contains(request()->getHost(), 'ngrok-free.app')) {
+            URL::forceScheme('https');
+        }
         
         JsonResource::withoutWrapping();
 

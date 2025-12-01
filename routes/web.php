@@ -13,82 +13,138 @@ use App\Http\Controllers\RewardController;
 use App\Http\Controllers\SkinAnalysisController;
 use App\Http\Controllers\SkincareRoutineController;
 use App\Http\Controllers\WishlistController;
+
+// Admin Auth Controller
+use App\Http\Controllers\Admin\Auth\LoginController as AdminLoginController;
+use App\Http\Controllers\Admin\BrandController;
+use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\ProductController;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// --- PUBLIC ROUTES ---
+// =========================================================================
+// 1. PUBLIC ROUTES (GUEST MODE)
+// Hanya bisa akses Home dan Halaman Info Statis
+// =========================================================================
+
 Route::get('/', [HomeController::class, 'index'])->name('home');
-Route::get('/catalog', [ProductPageController::class, 'index'])->name('products.index');
-Route::get('/products/{slug}/{id}', [ProductPageController::class, 'show'])->name('products.show');
 
-// Cart
-Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
-Route::post('/cart', [CartController::class, 'store'])->name('cart.store');
-Route::patch('/cart/{variantId}', [CartController::class, 'update'])->name('cart.update');
-Route::delete('/cart/{variantId}', [CartController::class, 'destroy'])->name('cart.destroy');
-
-// Categories & Search
-Route::get('/categories/{slug}', [ProductPageController::class, 'showByCategory'])->name('categories.show');
-Route::get('/brands/{slug}', [ProductPageController::class, 'showByBrand'])->name('brands.show');
-Route::get('/search', [ProductPageController::class, 'search'])->name('products.search');
-
-// Static Pages
+// Halaman Statis (Biasanya tetap publik agar tidak aneh)
 Route::get('/about', fn() => Inertia::render('About'))->name('about');
 Route::get('/contact', fn() => Inertia::render('Contact'))->name('contact');
 Route::get('/faq', fn() => Inertia::render('FAQ'))->name('faq');
 Route::get('/terms-of-service', fn() => Inertia::render('TermsOfService'))->name('terms');
 Route::get('/privacy-policy', fn() => Inertia::render('PrivacyPolicy'))->name('privacy');
 
-// --- AUTH & VERIFICATION ---
+
+// =========================================================================
+// 2. AUTH & VERIFICATION (Routes untuk Login/Verify Email)
+// =========================================================================
 Route::get('/email/verify', [VerificationController::class, 'notice'])->name('verification.notice');
 Route::post('/email/verify', [VerificationController::class, 'verify'])->name('verification.verify');
 Route::post('/email/verification-notification', [VerificationController::class, 'send'])->name('verification.send');
 
-// --- PROTECTED ROUTES (DASHBOARD & SETTINGS) ---
+
+// =========================================================================
+// 3. PROTECTED ROUTES (WAJIB LOGIN)
+// Sekarang Katalog & Produk masuk di sini sesuai permintaan
+// =========================================================================
 Route::middleware(['auth', 'verified'])->group(function () {
+
+    // --- CATALOG & PRODUCTS (Moved here: Guest cannot see this) ---
+    Route::get('/catalog', [ProductPageController::class, 'index'])->name('products.index');
+    Route::get('/products/{slug}/{id}', [ProductPageController::class, 'show'])->name('products.show');
+    Route::get('/categories/{slug}', [ProductPageController::class, 'showByCategory'])->name('categories.show');
+    Route::get('/brands/{slug}', [ProductPageController::class, 'showByBrand'])->name('brands.show');
+    Route::get('/search', [ProductPageController::class, 'search'])->name('products.search');
+
+    // --- SHOPPING FEATURES ---
+    // Cart
+    Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+    Route::post('/cart', [CartController::class, 'store'])->name('cart.store');
+    Route::patch('/cart/{variantId}', [CartController::class, 'update'])->name('cart.update');
+    Route::delete('/cart/{variantId}', [CartController::class, 'destroy'])->name('cart.destroy');
 
     // Checkout
     Route::get('/checkout', [CheckoutController::class, 'create'])->name('checkout.create');
     Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
     Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
     
-    // Dashboard (Gunakan Controller, hapus duplikasi closure function)
+    // Dashboard & Account
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    
-    // Account
     Route::get('/my-account', fn() => Inertia::render('Account/Index'))->name('account.index');
     
-    // Wishlist & Orders
+    // Wishlist
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
     Route::post('/wishlist', [WishlistController::class, 'store'])->name('wishlist.store');
     Route::delete('/wishlist/{variant}', [WishlistController::class, 'destroy'])->name('wishlist.destroy');
     Route::post('/wishlist/{variant}/move-to-cart', [WishlistController::class, 'moveToCart'])->name('wishlist.move-to-cart');
     Route::get('/wishlist/status', [WishlistController::class, 'status'])->name('wishlist.status');
+    
+    // Orders & Transactions
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
-
-    // riview product
-    Route::post('/reviews', [ReviewController::class, 'store'])->name('reviews.store')->middleware('auth');
-    // user cancel order
     Route::post('/orders/{id}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
-
-    // order return
     Route::post('/orders/{id}/return', [OrderReturnController::class, 'store'])->name('orders.return');
 
-    // skin analysis
+    // Reviews
+    Route::post('/reviews', [ReviewController::class, 'store'])->name('reviews.store');
+
+    // Features: Skin Analysis & Routine
     Route::get('/skin-analysis', [SkinAnalysisController::class, 'index'])->name('skin-analysis.index');
     Route::post('/skin-analysis', [SkinAnalysisController::class, 'store'])->name('skin-analysis.store');
 
-    // skincare routine
     Route::get('/my-routine', [SkincareRoutineController::class, 'index'])->name('routine.index');
     Route::post('/routine', [SkincareRoutineController::class, 'store'])->name('routine.store');
     Route::put('/routine/{id}', [SkincareRoutineController::class, 'update'])->name('routine.update');
     Route::post('/routine/{id}/toggle', [SkincareRoutineController::class, 'toggleCheck'])->name('routine.toggle');
     Route::delete('/routine/{id}', [SkincareRoutineController::class, 'destroy'])->name('routine.destroy');
     Route::delete('/routine/group/{id}', [SkincareRoutineController::class, 'destroyGroup'])->name('routine.destroy-group');
-    // rewards
+    
+    // Rewards
     Route::get('/rewards', [RewardController::class, 'index'])->name('rewards.index');
     Route::post('/rewards/{id}/redeem', [RewardController::class, 'redeem'])->name('rewards.redeem');
     
-    // INCLUDE SETTINGS ROUTE DI SINI
     require __DIR__.'/settings.php';
 });
+
+
+// =========================================================================
+// 4. ADMIN ROUTES (Skin Lab Center)
+// =========================================================================
+Route::prefix('skinlab-center')->name('admin.')->group(function() {
+
+    Route::middleware('guest:admin')->group(function() {
+        Route::get('/login', [AdminLoginController::class, 'showLoginForm'])->name('login');
+        Route::post('/login', [AdminLoginController::class, 'login'])->name('login.submit');
+    });
+
+    Route::middleware('auth:admin')->group(function() {
+        Route::get('/dashboard', function () {
+            return Inertia::render('Admin/Dashboard');
+        })->name('dashboard');
+
+        Route::resource('categories', CategoryController::class)->except(['create', 'show', 'edit']);
+        Route::resource('brands', BrandController::class)->except(['create', 'show', 'edit']);
+
+        Route::resource('products', ProductController::class);
+
+        Route::post('/logout', [AdminLoginController::class, 'logout'])->name('logout');
+    });
+
+    Route::get('/storage/{path}', function ($path) {
+        // Cari file aslinya di folder storage/app/public/
+        $filePath = storage_path('app/public/' . $path);
+
+        // Jika file ketemu, kirimkan ke browser
+        if (file_exists($filePath)) {
+            return Response::file($filePath);
+        }
+
+        // Jika tidak, baru 404
+        abort(404);
+    })->where('path', '.*');
+
+});
+
+// require __DIR__.'/auth.php';

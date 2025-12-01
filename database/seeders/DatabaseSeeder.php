@@ -30,7 +30,8 @@ class DatabaseSeeder extends Seeder
             PromoBannerSeeder::class,
             ProvincesSeeder::class,
             CitiesSeeder::class,
-            DistrictsSeeder::class
+            DistrictsSeeder::class,
+            RewardSeeder::class,
         ]);
     }
 }
