@@ -18,9 +18,11 @@ class PromoBannerResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'subtitle' => $this->subtitle,
+            'image' => $this->image,
             'image_url' => $this->image_url,
-            'link_url' => $this->link_url,
+            // 'link_url' => $this->link_url,
             'is_active' => $this->is_active,
+            'link' => route('products.promo', $this->id),
         ];
     }
 }
