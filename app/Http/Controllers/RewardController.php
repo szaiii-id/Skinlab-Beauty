@@ -13,44 +13,41 @@ class RewardController extends Controller
 {
     protected RewardService $rewardService;
 
-    // Inject RewardService
     public function __construct(RewardService $rewardService)
     {
         $this->rewardService = $rewardService;
     }
 
     /**
-     * Display Rewards Page
+     * Halaman Utama Reward Center
      */
     public function index(): Response
     {
         $user = Auth::user();
-
-        // Fetch data via Service
-        $catalog = $this->rewardService->getCatalog();
-        $myVouchers = $this->rewardService->getUserVouchers($user->id);
-        $history = $this->rewardService->getPointHistory($user->id);
+        $user->load('membership'); 
+        $userTier = $user->membership ? $user->membership->tier : 'Bronze';
 
         return Inertia::render('Rewards/Index', [
             'points' => $user->current_points,
-            'rewards' => $catalog,
-            'my_vouchers' => $myVouchers,
-            'history' => $history
+            'tier' => $userTier,
+            'rewards' => $this->rewardService->getCatalog(),
+            'my_vouchers' => $this->rewardService->getUserVouchers($user->id),
+            'history' => $this->rewardService->getPointHistory($user->id)
         ]);
     }
 
     /**
-     * Process Redemption
+     * Proses Tukar Poin
      */
     public function redeem(Request $request, $id): RedirectResponse
     {
         try {
             $this->rewardService->redeemReward(Auth::user(), (int) $id);
             
-            return redirect()->back()->with('toast_success', 'Redemption successful! Voucher added.');
+            return redirect()->back()->with('success', 'Berhasil! Voucher ditambahkan.');
 
         } catch (\Exception $e) {
-            return redirect()->back()->with('toast_error', $e->getMessage());
+            return redirect()->back()->with('error', $e->getMessage());
         }
     }
 }
