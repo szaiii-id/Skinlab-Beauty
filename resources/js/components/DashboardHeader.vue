@@ -1,181 +1,65 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { onMounted } from 'vue';
 import { router } from '@inertiajs/vue3';
-import { listenForMessages } from '@/firebase'; // Ensure this path is correct
-import { 
-    Bell, LogOut, Home, X, Trash2 
-} from 'lucide-vue-next';
+import { Home, LogOut, Sparkles } from 'lucide-vue-next';
+import { requestPermission } from '@/firebase'; 
 
-// --- STATE ---
-// Notification list
-const notifications = ref<Array<{ title: string; body: string; time: string }>>([]);
+// IMPORT KOMPONEN NOTIFIKASI PINTAR (Lonceng + Toast ada di sini)
+import NotificationDropdown from '@/components/NotificationDropdown.vue'; 
 
-const showToast = ref(false);
-const showDropdown = ref(false);
-const toastData = ref({ title: '', body: '' });
-let toastTimeout: any = null;
+const logout = () => { router.post('/logout'); };
+const goHome = () => { router.get('/'); };
 
-// --- ACTIONS ---
-const logout = () => { 
-    router.post('/logout'); 
-};
-
-const goHome = () => { 
-    router.get('/'); 
-};
-
-const closeToast = () => { 
-    showToast.value = false; 
-};
-
-// Toggle Notification Dropdown
-const toggleNotifications = () => {
-    showDropdown.value = !showDropdown.value;
-};
-
-// Clear All (Reset Badge)
-const clearNotifications = () => {
-    notifications.value = [];
-    showDropdown.value = false;
-};
-
-// Remove Single Notification
-const removeNotification = (index: number) => {
-    notifications.value.splice(index, 1);
-};
-
-const playNotificationSound = () => {
-    try {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-        audio.volume = 0.5;
-        audio.play().catch(() => {});
-    } catch (e) {
-        console.error("Audio play failed", e);
-    }
-};
-
-// --- LIFECYCLE ---
 onMounted(() => {
-    // Listen to Firebase Cloud Messaging
-    listenForMessages((payload: any) => {
-        // 1. Show Toast
-        toastData.value = { title: payload.title, body: payload.body };
-        showToast.value = true;
-        playNotificationSound();
-
-        if (toastTimeout) clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => showToast.value = false, 5000);
-
-        // 2. Add to List (Badge increment)
-        notifications.value.unshift({
-            title: payload.title,
-            body: payload.body,
-            time: 'Just now' // Changed to English
-        });
-    });
+    // Minta izin notifikasi browser saat komponen ini dimuat
+    requestPermission();
 });
 </script>
 
 <template>
-    <header class="bg-white border-b border-rose-200 shadow-sm sticky top-0 z-40 relative">
-        <div class="flex items-center justify-between px-6 py-4">
+    <header class="sticky top-0 z-30 w-full bg-white/80 backdrop-blur-md border-b border-rose-100 shadow-sm transition-all duration-300 h-20 shrink-0">
+        
+        <div class="w-full h-full px-6 flex items-center justify-between">
             
-            <!-- Page Title -->
-            <div>
-                <slot name="title"><h1 class="text-2xl font-light text-rose-800">Dashboard</h1></slot>
-                <slot name="subtitle"><p class="text-rose-600/80 text-sm mt-1">Welcome back</p></slot>
+            <div class="flex flex-col justify-center">
+                <div class="flex items-center gap-2">
+                    <div class="bg-rose-100 p-1.5 rounded-lg shadow-sm hidden sm:block">
+                        <Sparkles class="w-4 h-4 text-rose-500" />
+                    </div>
+                    
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-900 tracking-tight leading-none">Dashboard</h1>
+                    </div>
+                </div>
+                <p class="text-[11px] text-gray-500 font-medium ml-0 sm:ml-8 mt-0.5">Manage your beauty journey</p>
             </div>
             
-            <!-- Actions -->
             <div class="flex items-center gap-3">
-                <button @click="goHome" class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-rose-600 border border-gray-200 hover:border-rose-300 rounded-lg hover:bg-rose-50 transition-all">
-                    <Home class="w-5 h-5" /> <span class="hidden sm:inline">Home</span>
+                
+                <button 
+                    @click="goHome" 
+                    class="hidden sm:flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-rose-600 bg-transparent hover:bg-rose-50 rounded-full transition-all text-xs font-bold border border-transparent hover:border-rose-100" 
+                    title="Back to Home"
+                >
+                    <Home class="w-4 h-4" /> 
+                    <span>Home</span>
                 </button>
 
-                <!-- NOTIFICATION BUTTON -->
-                <div class="relative">
-                    <button 
-                        @click="toggleNotifications"
-                        class="flex items-center gap-2 px-4 py-2 text-rose-600 hover:text-rose-700 border border-rose-300 hover:border-rose-400 rounded-lg hover:bg-rose-50 transition-all"
-                        :class="{'bg-rose-50 border-rose-400': showDropdown}"
-                    >
-                        <Bell class="w-5 h-5" />
-                        <span class="hidden sm:inline">Notifications</span>
-                    </button>
-                    
-                    <!-- Red Badge -->
-                    <span v-if="notifications.length > 0" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-sm animate-pulse">
-                        {{ notifications.length }}
-                    </span>
+                <div class="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
 
-                    <!-- NOTIFICATION DROPDOWN -->
-                    <div v-if="showDropdown" class="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
-                        <div class="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                            <h3 class="font-semibold text-gray-700 text-sm">Notifications</h3>
-                            <button v-if="notifications.length > 0" @click="clearNotifications" class="text-xs text-rose-600 hover:text-rose-800 hover:underline">
-                                Mark all as read
-                            </button>
-                        </div>
-                        
-                        <div class="max-h-64 overflow-y-auto custom-scrollbar">
-                            <div v-if="notifications.length === 0" class="p-6 text-center text-gray-400 text-sm">
-                                No new notifications.
-                            </div>
-                            <ul v-else>
-                                <li v-for="(notif, index) in notifications" :key="index" class="p-4 border-b border-gray-50 hover:bg-rose-50/50 transition-colors relative group">
-                                    <div class="flex justify-between items-start">
-                                        <div>
-                                            <p class="text-sm font-bold text-gray-800">{{ notif.title }}</p>
-                                            <p class="text-xs text-gray-600 mt-1 leading-relaxed">{{ notif.body }}</p>
-                                            <p class="text-[10px] text-gray-400 mt-2">{{ notif.time }}</p>
-                                        </div>
-                                        <button @click="removeNotification(index)" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1" title="Remove">
-                                            <Trash2 class="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                    <!-- END DROPDOWN -->
+                <div class="relative flex items-center">
+                    <NotificationDropdown />
                 </div>
 
-                <button @click="logout" class="flex items-center gap-2 px-4 py-2 text-rose-600 hover:text-white border border-rose-300 hover:border-rose-600 hover:bg-rose-600 rounded-lg transition-all">
-                    <LogOut class="w-5 h-5" /> <span class="hidden sm:inline">Logout</span>
+                <button 
+                    @click="logout" 
+                    class="flex items-center gap-2 px-4 py-2 text-rose-600 bg-white hover:bg-rose-600 hover:text-white border border-rose-100 hover:border-rose-600 rounded-full transition-all shadow-sm hover:shadow-md text-xs font-bold uppercase tracking-wide group ml-1"
+                >
+                    <span>Logout</span>
+                    <LogOut class="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" /> 
                 </button>
             </div>
+
         </div>
     </header>
-
-    <!-- TOAST NOTIFICATION -->
-    <Transition
-        enter-active-class="transform ease-out duration-300 transition"
-        enter-from-class="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
-        enter-to-class="translate-y-0 opacity-100 sm:translate-x-0"
-        leave-active-class="transition ease-in duration-100"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-    >
-        <div v-if="showToast" class="fixed top-24 right-6 z-[100] max-w-sm w-full bg-white shadow-xl rounded-xl ring-1 ring-black ring-opacity-5 overflow-hidden border-l-4 border-rose-500">
-            <div class="p-4 flex items-start">
-                <div class="flex-shrink-0"><Bell class="h-5 w-5 text-rose-600" /></div>
-                <div class="ml-3 w-0 flex-1 pt-0.5">
-                    <p class="text-sm font-bold text-gray-900">{{ toastData.title }}</p>
-                    <p class="mt-1 text-sm text-gray-500">{{ toastData.body }}</p>
-                </div>
-                <div class="ml-4 flex-shrink-0">
-                    <button @click="closeToast" class="text-gray-400 hover:text-gray-500"><X class="h-5 w-5" /></button>
-                </div>
-            </div>
-        </div>
-    </Transition>
-    
-    <!-- Backdrop for Dropdown -->
-    <div v-if="showDropdown" class="fixed inset-0 z-30" @click="showDropdown = false"></div>
 </template>
-
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 5px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-</style>
