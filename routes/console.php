@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 use App\Models\SkincareRoutine;
 use App\Services\FcmService; // Import Service FCM
+use Illuminate\Support\Facades\DB;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -47,10 +48,23 @@ Schedule::call(function () {
             // Ini akan mengirim ke SEMUA device milik user tersebut (HP & Laptop)
             $fcmService->sendToUser(
                 $routine->user_id,
-                "Waktunya Skincare! ✨",
-                "Jangan lupa pakai {$productName} sekarang ya!",
+                "It`s time for your Skincare Routine ✨",
+                "Don`t forget to use {$productName} now!",
                 "/my-routine" // Link saat notifikasi diklik
             );
         }
     }
 })->everyMinute();
+
+Schedule::call(function () {
+    DB::table('notifications')
+        ->whereNotNull('read_at') // Hanya yang sudah dibaca
+        ->where('created_at', '<', now()->subDays(30)) // Lebih dari 30 hari
+        ->delete();
+        
+    // Opsi Ekstrem: Hapus yang BELUM dibaca pun kalau sudah 60 hari (Biar database bersih)
+    DB::table('notifications')
+        ->where('created_at', '<', now()->subDays(60))
+        ->delete();
+        
+})->daily();

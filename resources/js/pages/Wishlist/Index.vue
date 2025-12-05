@@ -1,169 +1,88 @@
 <script setup>
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, Link } from '@inertiajs/vue3';
 import DashboardLayout from '@/layouts/DashboardLayout.vue';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useCart } from '@/composables/useCart';
+import { Trash2, ShoppingCart, ArrowRight, HeartOff, Star, AlertCircle, PackageCheck, PackageX, Package, Store, Eye, Tag } from 'lucide-vue-next';
 import Swal from 'sweetalert2';
 
-defineOptions({
-    layout: DashboardLayout
-});
+defineOptions({ layout: DashboardLayout });
 
-// Props dari Backend
 const props = defineProps({
-    wishlist: {
-        type: [Array, Object], // Bisa Array atau Object untuk keamanan
-        default: () => []
-    }
+    wishlist: [Array, Object]
 });
 
 const { addToCart } = useCart();
 
 // --- LOGIC INFINITE SCROLL ---
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 6;
 const displayLimit = ref(ITEMS_PER_PAGE);
 const observerTarget = ref(null);
 let observer = null;
 
-// Konversi Data ke Array Entry agar konsisten
-const allWishlistEntries = computed(() => {
-    // Apapun bentuk datanya (Array/Object), kita jadikan entries
-    return Object.entries(props.wishlist || {});
-});
-
-// Slice data untuk ditampilkan
-const visibleWishlist = computed(() => {
-    const sliced = allWishlistEntries.value.slice(0, displayLimit.value);
-    // Kembalikan ke Object agar v-for bekerja stabil
-    return Object.fromEntries(sliced);
-});
-
-const hasMoreItems = computed(() => {
-    return displayLimit.value < allWishlistEntries.value.length;
-});
+const allWishlistEntries = computed(() => Object.values(props.wishlist || {}));
+const visibleWishlist = computed(() => allWishlistEntries.value.slice(0, displayLimit.value));
+const hasMoreItems = computed(() => displayLimit.value < allWishlistEntries.value.length);
 
 const loadMore = () => {
-    if (hasMoreItems.value) {
-        setTimeout(() => {
-            displayLimit.value += ITEMS_PER_PAGE;
-        }, 300);
-    }
+    if (hasMoreItems.value) setTimeout(() => { displayLimit.value += ITEMS_PER_PAGE; }, 300);
 };
 
 onMounted(() => {
     observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasMoreItems.value) {
-            loadMore();
-        }
+        if (entries[0].isIntersecting && hasMoreItems.value) loadMore();
     }, { rootMargin: '100px' });
-
     if (observerTarget.value) observer.observe(observerTarget.value);
 });
+onUnmounted(() => { if (observer) observer.disconnect(); });
 
-onUnmounted(() => {
-    if (observer) observer.disconnect();
-});
+const wishlistItemsCount = computed(() => allWishlistEntries.value.length);
 
-// --- HELPER & COMPUTED ---
+// --- HELPERS ---
+const formatCurrency = (amount) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount || 0);
 
-const formatCurrency = (amount) => {
-    if (!amount) return 'Rp 0';
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0
-    }).format(amount);
+const getImageUrl = (path) => {
+    if (!path) return '/images/default-product.png';
+    return path.startsWith('http') ? path : `/storage/${path}`;
 };
 
-const wishlistItemsCount = computed(() => Object.keys(props.wishlist || {}).length);
+const getDiscountPercent = (item) => {
+    if (item.final_price < item.price) {
+        return Math.round(((item.price - item.final_price) / item.price) * 100);
+    }
+    return 0;
+};
 
-// --- ACTIONS (FIXED IDs) ---
+// Helper Stok
+const getStockStatus = (stock) => {
+    if (stock <= 0) return { label: 'Sold Out', color: 'text-gray-400', bg: 'bg-gray-100 border-gray-200', icon: PackageX };
+    if (stock < 5) return { label: `Hurry! Only ${stock} left`, color: 'text-orange-600', bg: 'bg-orange-50 border-orange-100', icon: AlertCircle, animate: true };
+    return { label: 'In Stock', color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-100', icon: PackageCheck };
+};
 
-// 1. Remove Item
-const removeFromWishlist = (item) => { // Terima object Item, bukan key
+// --- ACTIONS ---
+const removeFromWishlist = (item) => {
     Swal.fire({
-        title: '<span class="text-gray-900 font-bold">Remove Item?</span>',
-        text: "Are you sure you want to remove this from your wishlist?",
+        title: 'Remove?',
+        text: "Remove from wishlist?",
         icon: 'warning',
-        iconColor: '#f43f5e', // Rose-500
         showCancelButton: true,
-        confirmButtonText: 'Yes, remove it',
-        cancelButtonText: 'Cancel',
-        buttonsStyling: false,
-        customClass: {
-            popup: 'rounded-3xl shadow-xl border border-rose-100 p-2',
-            title: 'text-xl',
-            confirmButton: 'bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold py-3 px-6 rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-200 mx-2',
-            cancelButton: 'bg-white text-gray-500 font-medium py-3 px-6 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors duration-200 mx-2'
-        }
+        confirmButtonColor: '#f43f5e',
+        cancelButtonColor: '#e5e7eb',
+        confirmButtonText: 'Yes',
+        customClass: { popup: 'rounded-2xl' }
     }).then((result) => {
-        if (result.isConfirmed) {
-            // GUNAKAN item.variant_id (ID Asli dari database)
-            router.delete(`/wishlist/${item.variant_id}`, {
-                preserveScroll: true,
-                onSuccess: () => {
-                    Swal.fire({
-                        title: 'Removed!',
-                        text: 'Item has been removed.',
-                        icon: 'success',
-                        timer: 1500,
-                        showConfirmButton: false,
-                        toast: true,
-                        position: 'top-end',
-                        iconColor: '#10b981' // Green-500 for success checkmark
-                    });
-                }
-            });
-        }
+        if (result.isConfirmed) router.delete(`/wishlist/${item.variant_id}`, { preserveScroll: true });
     });
 };
 
-// 2. Move to Cart
 const moveToCart = (item) => {
-    // GUNAKAN item.variant_id
+    if (item.stock <= 0) return;
+    // Panggil Composable Cart atau endpoint khusus move
     router.post(`/wishlist/${item.variant_id}/move-to-cart`, {}, {
         preserveScroll: true,
-        onSuccess: () => {
-            Swal.fire({
-                title: 'Moved to Cart!',
-                text: 'Item is now in your cart.',
-                icon: 'success',
-                timer: 2000,
-                showConfirmButton: false,
-                toast: true,
-                position: 'top-end',
-                iconColor: '#10b981'
-            });
-        },
-        onError: (errors) => {
-            const msg = errors.quantity || errors.error || 'Failed to move item.';
-            Swal.fire({
-                title: 'Oops...',
-                text: msg,
-                icon: 'error',
-                confirmButtonText: 'Okay',
-                buttonsStyling: false,
-                customClass: {
-                    confirmButton: 'bg-rose-500 text-white font-bold py-2 px-6 rounded-lg'
-                }
-            });
-        }
-    });
-};
-
-// 3. Add to Cart (Keep in wishlist)
-const addToCartFromWishlist = (item) => {
-    // GUNAKAN item.variant_id
-    addToCart(item.variant_id, 1, {
-        onSuccess: () => {
-            Swal.fire({
-                title: 'Added to Cart!',
-                icon: 'success',
-                timer: 1500,
-                showConfirmButton: false,
-                toast: true,
-                position: 'top-end',
-                iconColor: '#10b981'
-            });
-        }
+        onSuccess: () => Swal.fire({ icon: 'success', title: 'Moved to Cart', timer: 1500, showConfirmButton: false, toast: true, position: 'top-end' }),
+        onError: () => Swal.fire('Oops...', 'Failed to move item.', 'error')
     });
 };
 </script>
@@ -171,116 +90,141 @@ const addToCartFromWishlist = (item) => {
 <template>
     <Head title="My Wishlist" />
 
-    <div class="min-h-screen bg-gradient-to-br from-rose-50 to-pink-50 py-8">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="min-h-screen bg-[#F8F9FA] py-12">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             
-            <div class="mb-8 flex items-end justify-between">
+            <div class="mb-10 flex items-end justify-between border-b border-gray-200 pb-6">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-900 mb-1">My Wishlist</h1>
-                    <p class="text-gray-500 font-medium">{{ wishlistItemsCount }} saved items</p>
+                    <h1 class="text-3xl font-black text-gray-900 tracking-tight mb-1">My Wishlist</h1>
+                    <p class="text-gray-500 text-sm font-medium">{{ wishlistItemsCount }} items saved for later</p>
                 </div>
             </div>
 
-            <div v-if="wishlistItemsCount === 0" class="bg-white rounded-3xl shadow-sm border border-rose-100 p-16 text-center">
+            <div v-if="wishlistItemsCount === 0" class="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-20 text-center">
                 <div class="w-24 h-24 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <span class="text-5xl">❤️</span>
+                    <HeartOff class="w-10 h-10 text-rose-400" />
                 </div>
                 <h3 class="text-2xl font-bold text-gray-900 mb-2">Your wishlist is empty</h3>
-                <p class="text-gray-500 mb-8 max-w-md mx-auto">Save items you love here and buy them later.</p>
-                <button @click="router.get('/catalog')" class="inline-flex items-center px-8 py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-300">
-                    Browse Products
+                <button @click="router.get('/catalog')" class="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-rose-200 hover:-translate-y-1 transition-all duration-300">
+                    Browse Products <ArrowRight class="w-4 h-4" />
                 </button>
             </div>
 
             <div v-else class="space-y-6">
-                <div class="bg-white rounded-2xl shadow-sm border border-rose-100 overflow-hidden">
-                    <div class="divide-y divide-rose-50">
-                        <div 
-                            v-for="(item, key) in visibleWishlist" 
-                            :key="key" 
-                            class="flex flex-col sm:flex-row items-start sm:items-center gap-6 p-6 transition-all duration-300 hover:bg-rose-50/30"
-                        >
-                            <div class="relative overflow-hidden rounded-xl border border-gray-100 shadow-sm w-24 h-24 flex-shrink-0 bg-white">
-                                <img 
-                                    :src="item.image_url || '/images/default-product.png'" 
-                                    :alt="item.name"
-                                    class="w-full h-full object-cover"
-                                />
-                                <div v-if="item.stock <= 0" class="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-[1px]">
-                                    <span class="text-white text-[10px] font-bold px-2 py-1 bg-red-600 rounded uppercase tracking-wider">Sold Out</span>
-                                </div>
+                
+                <div 
+                    v-for="(item, key) in visibleWishlist" 
+                    :key="key" 
+                    class="bg-white rounded-3xl border border-gray-100 p-4 shadow-sm hover:shadow-lg hover:border-rose-100 transition-all duration-300 flex flex-col sm:flex-row group relative overflow-hidden"
+                    :class="{'opacity-80': item.stock <= 0}"
+                >
+                    <div class="relative w-full sm:w-48 aspect-square shrink-0">
+                        <div class="w-full h-full bg-[#F9FAFB] rounded-2xl p-4 flex items-center justify-center relative overflow-hidden border border-gray-50">
+                            <img 
+                                :src="getImageUrl(item.image_url)" 
+                                :alt="item.name"
+                                class="w-full h-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-110"
+                                :class="{'grayscale': item.stock <= 0}"
+                            />
+                            
+                            <div v-if="item.stock <= 0" class="absolute inset-0 bg-white/60 flex items-center justify-center backdrop-blur-[1px] z-10">
+                                <span class="bg-gray-800 text-white px-4 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider shadow-lg">Sold Out</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 p-2 sm:p-4 flex flex-col justify-center min-w-0">
+                        
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <Store class="w-3 h-3 text-rose-400" />
+                            <span v-if="item.brand_name" class="text-[10px] font-extrabold text-rose-500 uppercase tracking-widest truncate">
+                                {{ item.brand_name }}
+                            </span>
+                            <span v-if="item.category_name" class="text-[10px] font-bold text-gray-400 uppercase tracking-wide truncate border-l border-gray-200 pl-2">
+                                {{ item.category_name }}
+                            </span>
+                        </div>
+
+                        <h3 class="font-bold text-gray-900 text-lg leading-snug mb-3 cursor-pointer hover:text-rose-600 transition-colors" 
+                            @click="router.get(`/products/${item.product_slug}/${item.product_id}`)">
+                            {{ item.name }}
+                        </h3>
+
+                        <div class="flex flex-wrap items-center gap-3 mb-4">
+                            <div class="flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-lg">
+                                <Package class="w-3.5 h-3.5 text-gray-400" />
+                                {{ item.volume }}
                             </div>
                             
-                            <div class="flex-1 min-w-0">
-                                <h3 class="font-bold text-gray-900 text-lg leading-tight mb-1">{{ item.name }}</h3>
-                                <p class="text-gray-500 text-sm mb-3">Variant: {{ item.volume }}</p>
-                                
-                                <div class="flex items-center gap-3">
-                                    <p class="text-rose-500 font-extrabold text-lg">{{ formatCurrency(item.price) }}</p>
-                                    
-                                    <span 
-                                        class="text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 border"
-                                        :class="item.stock > 0 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'"
-                                    >
-                                        <span class="w-1.5 h-1.5 rounded-full" :class="item.stock > 0 ? 'bg-green-500' : 'bg-red-500'"></span>
-                                        {{ item.stock > 0 ? `In Stock: ${item.stock}` : 'Out of Stock' }}
-                                    </span>
-                                </div>
+                            <div class="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-lg border uppercase tracking-wide"
+                                :class="[getStockStatus(item.stock).color, getStockStatus(item.stock).bg]">
+                                <component :is="getStockStatus(item.stock).icon" class="w-3.5 h-3.5" />
+                                {{ getStockStatus(item.stock).label }}
                             </div>
+                        </div>
 
-                            <div class="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
-                                
-                                <button 
-                                    @click="addToCartFromWishlist(item)"
-                                    :disabled="item.stock === 0"
-                                    class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 hover:border-rose-200 hover:text-rose-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm group"
-                                    title="Add copy to Cart"
+                        <div v-if="item.tags && item.tags.length" class="hidden sm:flex flex-wrap gap-2 mt-auto">
+                            <span v-for="tag in item.tags.slice(0, 3)" :key="tag" 
+                                  class="text-[9px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded uppercase flex items-center gap-1">
+                                <Tag class="w-3 h-3" /> {{ tag }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="p-4 sm:w-64 flex flex-col justify-center gap-4 sm:border-l border-gray-50 bg-white sm:bg-gray-50/30 rounded-r-3xl">
+                        
+                        <div class="text-right sm:text-left">
+                            <p class="text-[10px] text-gray-400 font-bold uppercase mb-0.5">Price</p>
+                            
+                            <div v-if="item.final_price < item.price" class="flex flex-col items-end sm:items-start">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span v-if="getDiscountPercent(item) > 0" class="bg-rose-500 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-sm animate-pulse">
+                                        {{ getDiscountPercent(item) }}% OFF
+                                    </span>
+                                    <span class="text-xs text-gray-400 line-through decoration-rose-300">{{ formatCurrency(item.price) }}</span>
+                                </div>
+                                <div class="text-2xl font-black text-rose-600 tracking-tight">{{ formatCurrency(item.final_price) }}</div>
+                            </div>
+                            
+                            <div v-else>
+                                <div class="text-2xl font-black text-gray-900 tracking-tight">{{ formatCurrency(item.price) }}</div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-row sm:flex-col gap-2.5">
+                            <button 
+                                @click="moveToCart(item)"
+                                :disabled="item.stock <= 0"
+                                class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white text-xs font-bold uppercase tracking-wide rounded-xl shadow-md shadow-rose-200 hover:shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed disabled:shadow-none"
+                            >
+                                <ShoppingCart class="w-3.5 h-3.5" /> Move to Cart
+                            </button>
+
+                            <div class="flex gap-2">
+                                <Link 
+                                    :href="`/products/${item.product_slug}/${item.product_id}`"
+                                    class="flex-1 p-2.5 bg-white border border-rose-100 text-rose-400 rounded-xl hover:border-rose-200 hover:text-white hover:bg-rose-400 transition-all shadow-sm flex justify-center items-center"
+                                    title="View Details"
                                 >
-                                    <svg class="w-5 h-5 mr-2 text-gray-400 group-hover:text-rose-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                                    Add
-                                </button>
-
-                                <button 
-                                    @click="moveToCart(item)"
-                                    :disabled="item.stock === 0"
-                                    class="flex-1 sm:flex-none inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-rose-500/30 hover:scale-105 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none transition-all shadow-md"
-                                    title="Move to Cart (Remove from Wishlist)"
-                                >
-                                    Move to Cart
-                                </button>
-
+                                    <Eye class="w-4 h-4" />
+                                </Link>
                                 <button 
                                     @click="removeFromWishlist(item)"
-                                    class="p-2.5 bg-white border border-transparent text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-100 rounded-xl transition-all"
-                                    title="Remove from Wishlist"
+                                    class="flex-1 p-2.5 bg-white border border-rose-100 text-rose-400 rounded-xl hover:border-rose-200 hover:text-white hover:bg-rose-400 transition-all shadow-sm flex justify-center items-center"
+                                    title="Remove"
                                 >
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
+                                    <Trash2 class="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
                     </div>
+
                 </div>
 
-                <div v-if="hasMoreItems" ref="observerTarget" class="py-8 text-center">
-                     <div class="inline-flex items-center gap-3 px-4 py-2 bg-white rounded-full shadow-sm border border-rose-100 text-rose-500">
-                        <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span class="text-sm font-semibold">Loading your wishlist...</span>
-                     </div>
-                </div>
+            </div>
 
-                <div v-if="!hasMoreItems" class="text-center pt-4 pb-12">
-                    <button 
-                        @click="router.get('/catalog')"
-                        class="inline-flex items-center px-6 py-2 border border-rose-200 text-rose-600 bg-white font-bold rounded-xl hover:bg-rose-50 hover:border-rose-300 transition-colors shadow-sm"
-                    >
-                        Continue Shopping
-                    </button>
-                </div>
+            <div v-if="hasMoreItems" ref="observerTarget" class="py-12 text-center">
+                 <span class="inline-block px-4 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-400 uppercase tracking-widest animate-pulse">Loading...</span>
             </div>
         </div>
     </div>

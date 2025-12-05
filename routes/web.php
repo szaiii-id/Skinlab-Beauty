@@ -16,12 +16,20 @@ use App\Http\Controllers\WishlistController;
 
 // Admin Auth Controller
 use App\Http\Controllers\Admin\Auth\LoginController as AdminLoginController;
+use App\Http\Controllers\Admin\BannerController;
+use App\Http\Controllers\Admin\BanRequestController;
 use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\RewardController as AdminRewardController;
+use App\Http\Controllers\NotificationController;
+use App\Models\FcmToken;
+use App\Services\FcmService;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
 
 // =========================================================================
 // 1. PUBLIC ROUTES (GUEST MODE)
@@ -29,6 +37,7 @@ use Inertia\Inertia;
 // =========================================================================
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+
 
 // Halaman Statis (Biasanya tetap publik agar tidak aneh)
 Route::get('/about', fn() => Inertia::render('About'))->name('about');
@@ -58,6 +67,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/categories/{slug}', [ProductPageController::class, 'showByCategory'])->name('categories.show');
     Route::get('/brands/{slug}', [ProductPageController::class, 'showByBrand'])->name('brands.show');
     Route::get('/search', [ProductPageController::class, 'search'])->name('products.search');
+
+    Route::get('/promo/{id}', [ProductPageController::class, 'promo'])->name('products.promo');
+
 
     // --- SHOPPING FEATURES ---
     // Cart
@@ -104,8 +116,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Rewards
     Route::get('/rewards', [RewardController::class, 'index'])->name('rewards.index');
     Route::post('/rewards/{id}/redeem', [RewardController::class, 'redeem'])->name('rewards.redeem');
-    
+
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.readAll');
+    Route::delete('/notifications/clear', [NotificationController::class, 'destroy'])->name('notifications.clear');
+
     require __DIR__.'/settings.php';
+
 });
 
 
@@ -126,8 +144,23 @@ Route::prefix('skinlab-center')->name('admin.')->group(function() {
 
         Route::resource('categories', CategoryController::class)->except(['create', 'show', 'edit']);
         Route::resource('brands', BrandController::class)->except(['create', 'show', 'edit']);
-
         Route::resource('products', ProductController::class);
+        Route::resource('banners', BannerController::class)->except(['create', 'edit', 'show']);
+        
+        Route::post('banners/{id}/toggle', [BannerController::class, 'toggle'])->name('banners.toggle');
+        Route::resource('rewards', AdminRewardController::class)->except(['show']);
+        
+        Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
+        Route::post('customers/send-gift', [CustomerController::class, 'sendGift'])->name('customers.send-gift');
+        Route::post('customers/request-ban', [CustomerController::class, 'requestBan'])->name('customers.request-ban');
+        Route::post('customers/unban', [CustomerController::class, 'unban'])->name('customers.unban');
+        
+        // Ban Requests Management
+        Route::prefix('ban-requests')->name('ban-requests.')->group(function() {
+            Route::get('/', [BanRequestController::class, 'index'])->name('index');
+            Route::post('/{id}/approve', [BanRequestController::class, 'approve'])->name('approve');
+            Route::post('/{id}/reject', [BanRequestController::class, 'reject'])->name('reject');
+        });
 
         Route::post('/logout', [AdminLoginController::class, 'logout'])->name('logout');
     });
@@ -145,6 +178,7 @@ Route::prefix('skinlab-center')->name('admin.')->group(function() {
         abort(404);
     })->where('path', '.*');
 
+  
 });
 
 // require __DIR__.'/auth.php';
