@@ -5,11 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Scout\Searchable; // <--- WAJIB: Tambahkan ini
 
 class Brand extends Model
 {
-    use HasFactory, Searchable; // <--- WAJIB: Pasang Trait ini
+    use HasFactory, Searchable, SoftDeletes; // <--- WAJIB: Pasang Trait ini
 
     protected $fillable = [
         'name',
