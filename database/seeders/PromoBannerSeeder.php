@@ -17,7 +17,7 @@ class PromoBannerSeeder extends Seeder
             'title' => 'Summer Sale',
             'subtitle' => 'Up to 50% Off on all skincare!',
             'image_url' => '/images/promo/promo-banner-1.jpg', // Gambar di folder public
-            'link_url' => '/categories/skincare',
+            // 'link_url' => '/categories/skincare',
             'is_active' => true,
         ]);
 
@@ -25,7 +25,7 @@ class PromoBannerSeeder extends Seeder
             'title' => 'New Arrivals',
             'subtitle' => 'Fresh products, fresh glow!',
             'image_url' => '/images/promo/promo-banner-2.jpg',
-            'link_url' => '/products/new-arrivals',
+            // 'link_url' => '/products/new-arrivals',
             'is_active' => true,
         ]);
 
@@ -33,7 +33,7 @@ class PromoBannerSeeder extends Seeder
             'title' => 'Free Shipping',
             'subtitle' => 'On all orders above $50. Shop now!',
             'image_url' => '/images/promo/promo-banner-3.jpg',
-            'link_url' => '/',
+            // 'link_url' => '/',
             'is_active' => true, // Contoh promo non-aktif
         ]);
     }

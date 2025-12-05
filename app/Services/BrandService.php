@@ -89,7 +89,7 @@ class BrandService
         if (!$brand) return false;
 
         // Update slug if name changes (optional)
-        if (empty($data['slug']) && isset($data['name'])) {
+        if (empty($data['slug']) && isset($data['name']) && $data['name'] !== $brand->name) {
             $data['slug'] = Str::slug($data['name']);
         }
 

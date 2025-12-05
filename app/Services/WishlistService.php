@@ -14,44 +14,44 @@ class WishlistService
      */
     public function getWishlist(): array
     {
-        // 1. Ambil list ID variant dari session
-        // Format Session: ['variant_id_1' => [...data...], 'variant_id_2' => [...]]
         $wishlistSession = Session::get('wishlist', []);
         
-        if (empty($wishlistSession)) {
-            return [];
-        }
+        if (empty($wishlistSession)) return [];
 
         $variantIds = array_keys($wishlistSession);
 
-        // 2. Ambil data segar dari DB (Hanya 1 Query ringan via whereIn)
-        $freshVariants = ProductVariant::with('product')
+        // Ambil data fresh dari DB beserta relasi lengkap
+        $freshVariants = ProductVariant::with(['product.brand', 'product.category', 'promoBanners'])
             ->whereIn('id', $variantIds)
             ->get();
 
         $freshWishlist = [];
-        $idsFound = [];
 
         foreach ($freshVariants as $variant) {
-            $idsFound[] = $variant->id;
-            
-            // Re-construct data agar selalu update (Stok & Harga real-time)
             $freshWishlist[$variant->id] = [
                 'variant_id' => $variant->id,
                 'product_id' => $variant->product->id,
                 'product_slug' => $variant->product->slug,
-                'name' => $variant->product->name . ' (' . $variant->volume . ')',
-                'price' => $variant->price,
-                'image_url' => $variant->product->image_url,
-                'stock' => $variant->stock, // Penting untuk UI (misal: disable tombol add to cart jika 0)
+                'name' => $variant->product->name, // Nama Produk Asli
                 'volume' => $variant->volume,
-                'added_at' => $wishlistSession[$variant->id]['added_at'] ?? now(), // Pertahankan waktu add
+                
+                // DATA VITAL UNTUK PRODUCT CARD:
+                'price' => $variant->price,
+                'final_price' => $variant->final_price, // Ambil dari Accessor Model
+                'discount_info' => $variant->discount_info, // Ambil dari Accessor Model
+                'image_url' => $variant->product->thumbnail,
+                'stock' => $variant->stock,
+                
+                // INFO TAMBAHAN:
+                'brand_name' => $variant->product->brand->name ?? '',
+                'category_name' => $variant->product->category->name ?? '',
+                'tags' => $variant->product->suitability_tags,
+                
+                'added_at' => $wishlistSession[$variant->id]['added_at'] ?? now(),
             ];
         }
 
-        // 3. Self-Healing: Jika ada produk di session tapi tidak ada di DB (dihapus admin),
-        // otomatis dia hilang dari $freshWishlist karena loop di atas based on DB result.
-        // Kita update sessionnya agar bersih.
+        // Cleanup session jika ada item yang dihapus dari DB
         if (count($wishlistSession) !== count($freshWishlist)) {
             Session::put('wishlist', $freshWishlist);
         }

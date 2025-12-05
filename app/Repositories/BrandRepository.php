@@ -37,6 +37,10 @@ class BrandRepository
 
     public function delete(Brand $brand): bool
     {
-        return $brand->delete();
+        if ($brand->products()->exists()) {
+            return $brand->delete(); 
+        }
+
+        return $brand->forceDelete();
     }
 }

@@ -69,8 +69,8 @@ class CategoryService
     {
         $category = $this->repository->findById($id);
         if (!$category) return false;
-
-        if (empty($data['slug']) && isset($data['name'])) {
+        
+        if (empty($data['slug']) && isset($data['name']) && $data['name'] !== $category->name) {
             $data['slug'] = Str::slug($data['name']);
         }
 

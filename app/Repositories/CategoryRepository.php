@@ -38,6 +38,9 @@ class CategoryRepository
 
     public function delete(Category $category): bool
     {
-        return $category->delete();
+        if ($category->products()->exists()) {
+            return $category->delete(); 
+        }
+        return $category->forceDelete();
     }
 }

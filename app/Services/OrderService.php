@@ -109,6 +109,7 @@ class OrderService
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_variant_id' => $variant->id,
+                    'variant_name' => $variant->volume,
                     'product_name' => $variant->product->name,
                     'quantity' => $item['quantity'],
                     'price' => $variant->price,

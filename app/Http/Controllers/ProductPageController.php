@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\ProductResource;
+use App\Models\PromoBanner;
 use App\Services\BrandService;
 use App\Services\CategoryService;
 use App\Services\ProductService;
@@ -103,4 +104,33 @@ class ProductPageController extends Controller
             ]);
         }
     }
-}
+
+
+    public function promo($id)
+    {
+        // 1. Eager Load Lengkap (Logic ini SUDAH TERBUKTI BERHASIL di debug tadi)
+        $banner = PromoBanner::with([
+                'variants.product.category',
+                'variants.product.brand',
+                'variants.product.variants.promoBanners', // Vital untuk harga diskon
+                'variants.product.reviews' 
+            ])
+            ->where('id', $id)
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        // 2. Ambil Produk Induk
+        $products = $banner->variants
+            ->map(fn($v) => $v->product)
+            ->filter() // Hapus null
+            ->unique('id')
+            ->values(); // Reset index array
+
+        // 3. KEMBALIKAN KE INERTIA (Hapus Debug JSON)
+        return Inertia::render('Catalog/Index', [
+            'products' => ProductResource::collection($products),
+            'filterTitle' => $banner->title, 
+            'bannerImage' => null 
+        ]);
+    }
+}    

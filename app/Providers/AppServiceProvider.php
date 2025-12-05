@@ -46,8 +46,44 @@ class AppServiceProvider extends ServiceProvider
             ]);
         });
 
-        if (str_contains(request()->getHost(), 'ngrok-free.app')) {
-            URL::forceScheme('https');
+        if (!app()->runningInConsole()) {
+            $host = request()->getHost();
+            $scheme = request()->getScheme();
+            $port = request()->getPort();
+            
+            // Susun URL saat ini
+            $currentUrl = $scheme . '://' . $host . ($port && $port != 80 && $port != 443 ? ':' . $port : '');
+
+            // Update Config URL
+            config(['app.url' => $currentUrl]);
+            config(['app.asset_url' => $currentUrl]);
+            config(['filesystems.disks.public.url' => $currentUrl . '/storage']);
+
+            // --- PERBAIKAN FATAL SANCTUM (ARRAY, BUKAN STRING) ---
+            // Ambil config saat ini
+            $currentStateful = config('sanctum.stateful', []);
+            
+            // Normalisasi ke array jika ternyata string
+            if (is_string($currentStateful)) {
+                $currentStateful = explode(',', $currentStateful);
+            }
+
+            // Tambahkan domain saat ini ke array
+            $currentStateful[] = $host;
+            if ($port) {
+                $currentStateful[] = $host . ':' . $port;
+            }
+
+            // PENTING: Simpan kembali sebagai ARRAY (Jangan di-implode/jadikan string)
+            // Menggunakan array_values untuk reset index agar rapi
+            config(['sanctum.stateful' => array_values(array_unique(array_filter($currentStateful)))]);
+            // -----------------------------------------------------
+
+            // Paksa HTTPS jika Ngrok
+            if (str_contains($host, 'ngrok-free.dev') || str_contains($host, 'ngrok-free.app')) {
+                URL::forceScheme('https');
+                $this->app['request']->server->set('HTTPS', 'on');
+            }
         }
         
         JsonResource::withoutWrapping();

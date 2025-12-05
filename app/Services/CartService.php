@@ -2,63 +2,77 @@
 
 namespace App\Services;
 
-use App\Repositories\ProductRepository;
+use App\Models\ProductVariant;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\ValidationException;
 
 class CartService
 {
-    protected ProductRepository $productRepository;
-
-    public function __construct(ProductRepository $productRepository)
-    {
-        $this->productRepository = $productRepository;
-    }
-
     /**
-     * Ambil data keranjang, TAPI sinkronkan dengan data terbaru dari DB.
-     * Agar harga dan stok selalu real-time saat user buka halaman Cart.
+     * Ambil Cart dengan Data LENGKAP (Brand, Category, Diskon, dll)
      */
     public function getCart(): array
     {
-        $cart = Session::get('cart', []);
+        $cartSession = Session::get('cart', []);
         $freshCart = [];
         $hasChanges = false;
+        
+        if (empty($cartSession)) return [];
 
-        foreach ($cart as $variantId => $item) {
-            // Ambil data fresh dari DB (bisa dicache via repository/service jika mau)
-            // Di sini kita pakai findByIdWithVariants dari repository sebelumnya
-            // TAPI, kita butuh spesifik Variant. Mari kita asumsikan akses DB langsung via Model 
-            // atau tambahkan method di Repo. Disini saya pakai Model langsung untuk ringkas.
-            $variant = \App\Models\ProductVariant::with('product')->find($variantId);
+        $variantIds = array_keys($cartSession);
 
-            // Jika barang sudah dihapus admin, hapus dari keranjang
-            if (!$variant) {
-                $hasChanges = true;
-                continue;
-            }
+        // 1. Ambil Data Fresh dari DB + Relasi (Brand, Category, Promo)
+        $variants = ProductVariant::with(['product.brand', 'product.category', 'promoBanners'])
+            ->whereIn('id', $variantIds)
+            ->get();
 
-            // Update harga & stok terbaru (PENTING)
-            $item['price'] = $variant->price;
-            $item['stock'] = $variant->stock; // Info stok real-time
-            $item['name'] = $variant->product->name . ' (' . $variant->volume . ')';
-            $item['image_url'] = $variant->product->image_url;
-            
-            // Validasi: Jika stok tiba-tiba 0 atau kurang dari qty cart
+        foreach ($variants as $variant) {
+            $sessionItem = $cartSession[$variant->id] ?? [];
+            $requestedQty = $sessionItem['quantity'] ?? 1;
+
+            // Validasi Stok Real-time
             if ($variant->stock <= 0) {
-                // Opsi: Hapus atau tandai sold out
-                $item['error'] = 'Stok habis';
-            } elseif ($item['quantity'] > $variant->stock) {
-                $item['quantity'] = $variant->stock; // Turunkan paksa ke max stok
-                $item['error'] = 'Stok terbatas, jumlah disesuaikan';
+                // Opsi: Tetap tampilkan tapi tandai error
+                $qty = 0; // Atau biarkan, nanti di UI disable checkout
+            } elseif ($requestedQty > $variant->stock) {
+                $requestedQty = $variant->stock;
                 $hasChanges = true;
             }
 
-            $freshCart[$variantId] = $item;
+            // 2. Mapping Data Informatif (Sama seperti Wishlist)
+            $freshCart[$variant->id] = [
+                'variant_id' => $variant->id,
+                'product_id' => $variant->product->id,
+                'product_slug' => $variant->product->slug,
+                'name' => $variant->product->name, // Nama Produk Saja
+                'volume' => $variant->volume, // Varian pisah biar rapi
+                
+                'price' => $variant->price, // Harga Asli
+                'final_price' => $variant->final_price, // Harga Diskon (dari Model)
+                'discount_info' => $variant->discount_info, // Badge Diskon
+                
+                'image_url' => $variant->image, // Pakai Accessor (bisa gambar varian/produk)
+                'stock' => $variant->stock,
+                'quantity' => $requestedQty,
+                
+                // INFO TAMBAHAN (Biar Keren di UI):
+                'brand_name' => $variant->product->brand->name ?? '',
+                'category_name' => $variant->product->category->name ?? '',
+                'tags' => $variant->product->suitability_tags ?? [],
+            ];
         }
 
-        if ($hasChanges) {
-            Session::put('cart', $freshCart);
+        // Hapus item di session jika tidak ada di DB (Product deleted)
+        if (count($cartSession) !== count($freshCart) || $hasChanges) {
+            // Re-key session dengan data minimal untuk hemat storage
+            $sessionToSave = [];
+            foreach ($freshCart as $id => $item) {
+                $sessionToSave[$id] = [
+                    'quantity' => $item['quantity']
+                    // Kita tidak simpan harga/nama di session lagi, biar selalu fresh dari DB
+                ];
+            }
+            Session::put('cart', $sessionToSave);
         }
 
         return $freshCart;
@@ -66,32 +80,30 @@ class CartService
 
     public function addToCart(int $variantId, int $quantity): void
     {
-        $variant = \App\Models\ProductVariant::with('product')->find($variantId);
+        // Validasi Stok Sebelum Add
+        $variant = ProductVariant::find($variantId);
 
         if (!$variant) {
-            throw ValidationException::withMessages(['variant_id' => 'Product not found.']);
+            throw ValidationException::withMessages(['product' => 'Product not found.']);
+        }
+
+        if ($variant->stock < $quantity) {
+            throw ValidationException::withMessages(['quantity' => "Stok tidak cukup. Sisa: {$variant->stock}"]);
         }
 
         $cart = Session::get('cart', []);
+        
+        // Cek qty yang sudah ada di cart
         $currentQty = isset($cart[$variantId]) ? $cart[$variantId]['quantity'] : 0;
         $newQty = $currentQty + $quantity;
 
-        // 1. CEK STOK SEBELUM NAMBAH (CRITICAL)
         if ($newQty > $variant->stock) {
-            throw ValidationException::withMessages([
-                'quantity' => "Stok tidak cukup. Tersisa: {$variant->stock}"
-            ]);
+             throw ValidationException::withMessages(['quantity' => "Maksimal pembelian {$variant->stock} item."]);
         }
 
+        // Simpan ID & Qty saja di session (Data lain ambil live di getCart)
         $cart[$variantId] = [
-            'variant_id' => $variant->id,
-            'product_id' => $variant->product->id,
-            'product_slug' => $variant->product->slug,
-            'name' => $variant->product->name . ' (' . $variant->volume . ')', 
-            'quantity' => $newQty,
-            'price' => $variant->price, // Harga saat add (nanti di-refresh di getCart)
-            'image_url' => $variant->product->image_url, 
-            'stock' => $variant->stock
+            'quantity' => $newQty
         ];
 
         Session::put('cart', $cart);
@@ -100,15 +112,11 @@ class CartService
     public function updateQuantity(int $variantId, int $quantity): void
     {
         $cart = Session::get('cart', []);
-
         if (!isset($cart[$variantId])) return;
 
-        // Cek Stok lagi
-        $variant = \App\Models\ProductVariant::find($variantId);
+        $variant = ProductVariant::find($variantId);
         if ($variant && $quantity > $variant->stock) {
-            throw ValidationException::withMessages([
-                'quantity' => "Maksimal pembelian adalah {$variant->stock}"
-            ]);
+            throw ValidationException::withMessages(['quantity' => "Stok maks: {$variant->stock}"]);
         }
 
         $cart[$variantId]['quantity'] = $quantity;

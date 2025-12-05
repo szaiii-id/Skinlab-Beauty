@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('title');
             $table->string('subtitle')->nullable();
             $table->string('image_url'); 
-            $table->string('link_url'); 
+            // $table->string('link_url'); 
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

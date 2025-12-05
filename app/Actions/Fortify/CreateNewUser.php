@@ -23,12 +23,17 @@ class CreateNewUser implements CreatesNewUsers
             'terms' => ['accepted'],
         ])->validate();
 
-        // Create user
         $user = User::create([
             'name' => $input['name'],
             'email' => $input['email'],
             'password' => Hash::make($input['password']),
         ]);
+
+        try {
+            $user->searchable();
+        } catch (\Exception $e) {
+            Log::error("Gagal sync user baru ke Elasticsearch: " . $e->getMessage());
+        }
 
         Log::info('User registered', ['user_id' => $user->id, 'email' => $user->email]);
 

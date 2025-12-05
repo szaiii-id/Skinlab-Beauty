@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
             CitiesSeeder::class,
             DistrictsSeeder::class,
             RewardSeeder::class,
+            AdminSeeder::class
         ]);
     }
 }
