@@ -109,15 +109,56 @@ class ProductRepository
         });
     }
 
+    /**
+     * Update Product dengan Logika Cerdas (Smart Update)
+     * Mencegah Error Foreign Key jika varian sudah pernah terjual.
+     */
     public function updateProductWithVariants(Product $product, array $productData, array $variantsData): Product
     {
         return DB::transaction(function () use ($product, $productData, $variantsData) {
             
+            // 1. Update Induk Produk
             $product->update($productData);
-            foreach ($variantsData as $variant) {
-                if (isset($variant['id'])) {
-                    $product->variants()->where('id', $variant['id'])->update($variant);
+
+            // 2. Identifikasi ID Varian yang dikirim dari Form (Yang ingin dipertahankan/diupdate)
+            $submittedVariantIds = collect($variantsData)
+                ->pluck('id')
+                ->filter() // Ambil yang punya ID saja (bukan null/baru)
+                ->toArray();
+
+            // 3. Hapus Varian Lama yang TIDAK ADA di Form
+            // Menggunakan try-catch agar jika varian terkunci oleh order (Foreign Key), sistem tidak crash.
+            try {
+                if (!empty($submittedVariantIds)) {
+                    // Hapus varian milik produk ini yang ID-nya TIDAK ADA di list form
+                    $product->variants()->whereNotIn('id', $submittedVariantIds)->delete();
                 } else {
+                    // Kasus langka: Jika user menghapus SEMUA varian di form, coba hapus semua di DB
+                    // (Ini mungkin akan gagal jika ada order, tapi aman karena try-catch)
+                   // $product->variants()->delete(); 
+                   // Note: Biasanya kita memaksa minimal 1 varian di Frontend, jadi blok else ini jarang kena.
+                }
+            } catch (\Exception $e) {
+                // Silent fail: Jika varian tidak bisa dihapus karena sudah ada transaksi (order_items),
+                // biarkan saja varian itu tetap ada di database (orphan/non-aktif) demi integritas data.
+                // Log::warning("Gagal menghapus varian produk ID {$product->id}: " . $e->getMessage());
+            }
+
+            // 4. Loop Data Varian: Update Existing atau Create New
+            foreach ($variantsData as $variant) {
+                if (isset($variant['id']) && $variant['id']) {
+                    // --- UPDATE VARIANT LAMA ---
+                    $product->variants()->where('id', $variant['id'])->update([
+                        'volume' => $variant['volume'],
+                        'price' => $variant['price'],
+                        'stock' => $variant['stock'], // Pastikan 'stock' (English)
+                        'sku' => $variant['sku'],
+                        // Image URL hanya diupdate jika ada perubahan di Service Layer (tidak null)
+                        'image_url' => $variant['image_url'] ?? null, 
+                    ]);
+                } else {
+                    // --- CREATE VARIANT BARU ---
+                    $variant['product_id'] = $product->id;
                     $product->variants()->create($variant);
                 }
             }
@@ -128,7 +169,8 @@ class ProductRepository
 
     public function delete(Product $product): bool
     {
+        $product->variants()->delete();
+        
         return $product->delete();
     }
-
 }

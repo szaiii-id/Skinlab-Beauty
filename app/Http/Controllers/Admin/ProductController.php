@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Services\ProductService;
 use App\Services\BrandService;
 use App\Services\CategoryService;
@@ -104,13 +105,57 @@ class ProductController extends Controller
         // Ambil produk beserta relasinya
         $product = \App\Models\Product::with(['variants', 'brand', 'category'])->findOrFail($id);
 
-        return Inertia::render('Admin/Product/Edit', [
+        return Inertia::render('Admin/Product/Create', [
             'product' => $product,
             'brands' => $this->brandService->getAllBrands(),
             'categories' => $this->categoryService->getAllCategories(),
             'skinTypes' => ['Oily', 'Dry', 'Combination', 'Sensitive', 'Normal'],
             'skinConcerns' => ['Acne', 'Aging', 'Dullness', 'Dark Spots', 'Pores', 'Redness'],
         ]);
+    }
+
+    public function update(Request $request, string $id)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'required|string',
+            'brand_id' => 'required|exists:brands,id',
+            'category_id' => 'required|exists:categories,id',
+            'thumbnail' => 'nullable|image|max:2048', 
+            'suitability_tags' => 'nullable|array',
+            
+            'variants' => 'required|array|min:1',
+            
+            // --- TAMBAHAN WAJIB (AGAR ID TIDAK HILANG) ---
+            'variants.*.id' => 'nullable|integer', 
+            // ---------------------------------------------
+            
+            'variants.*.volume' => 'required|string',
+            'variants.*.price' => 'required|numeric|min:0',
+            'variants.*.stock' => 'required|integer|min:0',
+            'variants.*.sku' => 'nullable|string',
+            'variants.*.image_file' => 'nullable|image|max:2048',
+            'variants.*.image_url' => 'nullable|string',
+        ]);
+        
+        $product = Product::findOrFail($id);
+        $thumbnail = $request->file('thumbnail');
+        
+        // Ambil variants dari $data (yang sekarang SUDAH ADA ID-nya)
+        $variants = $data['variants']; 
+        
+        // Mapping file gambar varian (tetap sama)
+        foreach ($request->variants as $index => $variantData) {
+            if (isset($variantData['image_file'])) {
+                $variants[$index]['image_file'] = $variantData['image_file'];
+            }
+        }
+
+        unset($data['variants']); 
+
+        $this->productService->updateProduct($product->id, $data, $thumbnail, $variants);
+
+        return redirect()->route('admin.products.index')->with('success', 'Product updated successfully.');
     }
 
     /**
