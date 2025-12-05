@@ -1,0 +1,233 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\User;
+use App\Services\RewardService;
+use App\Services\FcmService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+class CustomerService
+{
+    protected RewardService $rewardService;
+    protected FcmService $fcmService;
+
+    public function __construct(RewardService $rewardService, FcmService $fcmService)
+    {
+        $this->rewardService = $rewardService;
+        $this->fcmService = $fcmService;
+    }
+
+    /**
+     * Get filtered users dengan logic baru
+     */
+    public function getFilteredUsers($filter = 'all', $search = null)
+    {
+        $query = User::query();
+        
+        // === FILTER LOGIC ===
+        if ($filter === 'sleeping_beauty') {
+            // User TIDAK order dalam 90 hari terakhir
+            $query->whereDoesntHave('orders', function($q) {
+                $q->where('created_at', '>=', now()->subDays(90));
+            });
+        } 
+        elseif ($filter === 'loyal_queen') {
+            // User dengan spend ≥2jt ATAU completed order ≥5
+            $query->whereHas('orders', function($q) {
+                $q->select('user_id')
+                  ->where('order_status', 'completed')
+                  ->groupBy('user_id')
+                  ->havingRaw('SUM(total_amount) >= 2000000 OR COUNT(*) >= 5');
+            });
+        }
+        elseif ($filter === 'first_time_buyers') {
+            // 🌱 User pertama kali belanja dalam 30 hari
+            $query->whereHas('orders', function($q) {
+                $q->select('user_id')
+                  ->where('order_status', 'completed')
+                  ->groupBy('user_id')
+                  ->havingRaw('COUNT(*) = 1') // Hanya 1 transaksi
+                  ->havingRaw('MAX(created_at) >= ?', [now()->subDays(30)]);
+            });
+        }
+        // 'all' → no filter
+        
+        // === SEARCH ===
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+        
+        // === ORDER/SORTING LOGIC ===
+        if ($filter === 'all') {
+            // DEFAULT: Sort by Last Order Date (aktifitas terkini)
+            $query->orderByRaw('
+                COALESCE(
+                    (SELECT MAX(created_at) FROM orders 
+                     WHERE user_id = users.id AND order_status = "completed"),
+                    users.created_at
+                ) DESC
+            ');
+        } else {
+            // Untuk filter lain: sort by created_at (default)
+            $query->latest();
+        }
+        
+        // === GET RESULTS ===
+        $users = $query->with(['orders' => function($q) {
+            $q->where('order_status', 'completed');
+        }])->paginate(10);
+        
+        // === MANUAL CALCULATION (untuk frontend) ===
+        $users->getCollection()->transform(function($user) {
+            $completedOrders = $user->orders->where('order_status', 'completed');
+            
+            $user->orders_count = $user->orders->count();
+            $user->completed_orders_count = $completedOrders->count();
+            $user->orders_sum_total_amount = $completedOrders->sum('total_amount');
+            
+            // Hitung last order date untuk display
+            $lastOrder = $user->orders->sortByDesc('created_at')->first();
+            $user->last_order_date = $lastOrder ? $lastOrder->created_at : null;
+            
+            return $user;
+        });
+        
+        return $users;
+    }
+    
+    /**
+     * Get filtered users optimized
+     */
+    public function getFilteredUsersOptimized($filter = 'all', $search = null)
+    {
+        // 1. Subquery Statistics
+        $statsSub = DB::table('orders')
+            ->select([
+                'user_id',
+                DB::raw('COUNT(*) as total_orders'),
+                DB::raw('SUM(CASE WHEN order_status = "completed" THEN 1 ELSE 0 END) as completed_count'),
+                DB::raw('SUM(CASE WHEN order_status = "completed" THEN total_amount ELSE 0 END) as total_spent'),
+                DB::raw('MAX(CASE WHEN order_status = "completed" THEN created_at END) as last_order_date')
+            ])
+            ->groupBy('user_id');
+        
+        $query = User::select([
+                'users.*',
+                DB::raw('COALESCE(os.total_orders, 0) as orders_count'),
+                DB::raw('COALESCE(os.completed_count, 0) as completed_orders_count'),
+                DB::raw('COALESCE(os.total_spent, 0) as orders_sum_total_amount'),
+                DB::raw('os.last_order_date')
+            ])
+            ->leftJoinSub($statsSub, 'os', function($join) {
+                $join->on('users.id', '=', 'os.user_id');
+            });
+        
+        // === 2. FILTER LOGIC UTAMA ===
+        
+        if ($filter === 'banned') {
+            // KHUSUS Filter Banned: Tampilkan HANYA yang di-banned
+            $query->where('users.is_banned', true);
+        } 
+        else {
+            // SEMUA Filter Lain (All, Loyal, Sleeping, dll):
+            // Tampilkan HANYA yang TIDAK di-banned (User Aktif)
+            $query->where('users.is_banned', false);
+            
+            // Logic filter tambahan untuk kategori user aktif
+            if ($filter === 'sleeping_beauty') {
+                $query->where(function($q) {
+                    $q->whereNull('os.last_order_date')
+                      ->orWhere('os.last_order_date', '<', now()->subDays(90));
+                });
+            }
+            elseif ($filter === 'loyal_queen') {
+                $query->where(function($q) {
+                    $q->where('os.total_spent', '>=', 2000000)
+                      ->orWhere('os.completed_count', '>=', 5);
+                });
+            }
+            elseif ($filter === 'first_time_buyers') {
+                $query->where('os.completed_count', '=', 1)
+                      ->where('os.last_order_date', '>=', now()->subDays(30));
+            }
+        }
+        
+        // === 3. SEARCH ===
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('users.name', 'like', "%{$search}%")
+                  ->orWhere('users.email', 'like', "%{$search}%");
+            });
+        }
+        
+        // === 4. ORDER BY ===
+        if ($filter === 'all') {
+            // Sort by activity terkini
+            $query->orderByRaw('COALESCE(os.last_order_date, users.created_at) DESC');
+        } else {
+            $query->orderBy('users.created_at', 'desc');
+        }
+        
+        return $query->paginate(10);
+    }
+    
+    /**
+     * Send gift to users
+     */
+    public function sendGiftToUsers(array $userIds, int $rewardId)
+    {
+        $successCount = 0;
+        $failedUsers = [];
+        
+        foreach ($userIds as $userId) {
+            DB::beginTransaction();
+            
+            try {
+                $user = User::find($userId);
+                
+                // Skip jika user banned (Safety Check)
+                if (!$user || $user->is_banned) {
+                    $failedUsers[] = "User {$userId}: Not found or Banned";
+                    DB::rollBack();
+                    continue;
+                }
+                
+                $voucher = $this->rewardService->claimReward($user, $rewardId);
+                
+                // Notifikasi
+                $user->notify(new \App\Notifications\GiftReceivedNotification(
+                    $voucher->reward->name, 
+                    $voucher->code
+                ));
+                
+                // FCM
+                $this->fcmService->sendToUser(
+                    $user->id, 
+                    "🎁 Surprise Gift!", 
+                    "You received {$voucher->reward->name}", 
+                    '/rewards'
+                );
+                
+                DB::commit();
+                $successCount++;
+                
+            } catch (\Exception $e) {
+                DB::rollBack();
+                $failedUsers[] = "User {$userId}: " . $e->getMessage();
+                Log::error("Gift Error User {$userId}: " . $e->getMessage());
+            }
+        }
+        
+        return [
+            'success' => $successCount,
+            'failed' => count($failedUsers),
+            'failed_details' => $failedUsers
+        ];
+    }
+
+}
