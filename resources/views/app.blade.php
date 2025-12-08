@@ -5,6 +5,17 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         
+        @php
+            // PERBAIKAN FINAL UNTUK NGROK & CORS:
+            // Kita secara paksa menimpa asset_url di scope Blade
+            $host = request()->getHost();
+            
+            if (\Illuminate\Support\Str::contains($host, 'ngrok-free.dev')) {
+                // Force asset URL menjadi HTTPS Ngrok domain
+                config(['app.asset_url' => 'https://' . $host]);
+            }
+            // Jika tidak Ngrok, biarkan Laravel menggunakan config APP_URL default
+        @endphp
 
         <script>
             (function() {
