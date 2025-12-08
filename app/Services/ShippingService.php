@@ -90,38 +90,51 @@ class ShippingService
     /**
      * Request Pickup / Booking Courier
      */
+/**
+     * Request Pickup / Booking Courier (Get Resi)
+     */
     public function bookShipment(Order $order): array
     {
         if ($order->shipping_tracking_number) {
             throw new Exception("Order is already booked with tracking number: {$order->shipping_tracking_number}");
         }
 
-        // Prepare Payload using Helper
         $payload = $this->prepareBookingPayload($order);
         
-        Log::info('Booking Payload:', $payload);
-
         $response = Http::withHeaders([
             'x-api-key'    => $this->deliveryKey,
             'Content-Type' => 'application/json'
         ])->post("{$this->baseUrlBooking}/orders/store", $payload);
 
         $result = $response->json();
+        
+        // Log::info('KOMERCE API RESPONSE:', $result); // Dapat diaktifkan untuk debugging di production
 
+        // Memastikan API sukses dan AWB ada di dalam respon
         if ($response->successful() && ($result['meta']['code'] ?? 0) == 201) {
+            
             $data = $result['data'];
             
-            // Update Local Database
+            // Mengambil Resi (AWB) dengan Fallback key: order_no, awb, atau resi
+            $noResi = $data['order_no'] ?? $data['awb'] ?? $data['resi'] ?? null;
+
+            if (empty($noResi)) {
+                // Terjadi jika API sukses tapi tidak mengembalikan data resi
+                throw new Exception("Komerce sukses, tapi Nomor Resi (AWB) tidak ditemukan di respon.");
+            }
+
+            // Menyimpan AWB ke kolom yang benar
             $order->update([
-                'shipping_tracking_number' => $data['order_no'],
+                'shipping_tracking_number' => $noResi,
                 'komerce_order_id'         => $data['order_id'],
-                'order_status'             => 'shipped'
+                'order_status'             => 'shipped' // Ubah status setelah booking berhasil
             ]);
 
             return $data;
         }
 
-        throw new Exception("Booking Failed: " . ($result['meta']['message'] ?? 'Unknown Error'));
+        // Melempar error jika ada masalah di API (misal 404/400/API Key salah)
+        throw new Exception("Booking Failed: " . ($result['meta']['message'] ?? 'Unknown API Error'));
     }
 
     /**
@@ -331,7 +344,7 @@ class ShippingService
     /**
      * Helper: Prepare Payload for Booking (Private)
      */
-    private function prepareBookingPayload(Order $order): array
+    public function prepareBookingPayload(Order $order): array
     {
         $courierParts = explode(' - ', $order->shipping_courier ?? 'JNE - REG');
         $shippingCode = strtoupper(trim($courierParts[0] ?? 'JNE')); 

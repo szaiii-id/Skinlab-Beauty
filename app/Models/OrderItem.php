@@ -17,11 +17,9 @@ class OrderItem extends Model
         return $this->belongsTo(Order::class);
     }
 
-    // ✅ UPDATE: Relasi ke ProductVariant
+    // ✅ UPDATE PENTING: Tambahkan withTrashed()
     public function productVariant()
     {
-        return $this->belongsTo(ProductVariant::class, 'product_variant_id');
+        return $this->belongsTo(ProductVariant::class, 'product_variant_id')->withTrashed();
     }
-
-
 }
