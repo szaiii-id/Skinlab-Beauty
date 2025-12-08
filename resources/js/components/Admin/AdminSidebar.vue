@@ -124,11 +124,18 @@ const isActive = (routeName: string) => {
             <div>
                 <p class="px-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-3">Sales</p>
                 <div class="space-y-1">
-                    <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-gray-600 hover:bg-pink-50 hover:text-pink-700 transition-all duration-200 group">
-                        <svg class="w-5 h-5 mr-3 text-gray-400 group-hover:text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                    <Link 
+                        :href="route('admin.orders.index')" 
+                        class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden"
+                        :class="isActive('admin.orders') 
+                            ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-lg shadow-pink-200' 
+                            : 'text-gray-600 hover:bg-pink-50 hover:text-pink-700'"
+                    >
+                        <svg class="w-5 h-5 mr-3 transition-colors" :class="isActive('admin.orders') ? 'text-white' : 'text-gray-400 group-hover:text-pink-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                        </svg>
                         Orders
-                        <span class="ml-auto bg-pink-100 text-pink-600 py-0.5 px-2 rounded-full text-[10px] font-bold shadow-sm">New</span>
-                    </a>
+                    </Link>
                     <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-gray-600 hover:bg-pink-50 hover:text-pink-700 transition-all duration-200 group">
                         <svg class="w-5 h-5 mr-3 text-gray-400 group-hover:text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                         Returns
