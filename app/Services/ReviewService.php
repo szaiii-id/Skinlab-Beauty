@@ -31,13 +31,18 @@ class ReviewService
         // 2. Execute Transaction
         DB::transaction(function () use ($user, $data) {
             
+            $imagePath = null;
+            if (isset($data['image']) && $data['image'] instanceof \Illuminate\Http\UploadedFile) {
+                $imagePath = $data['image']->store('reviews', 'public');
+            }
             // A. Create Review Record
             $review = Review::create([
                 'user_id'    => $user->id,
                 'product_id' => $data['product_id'],
                 'order_id'   => $data['order_id'],
                 'rating'     => $data['rating'],
-                'comment'    => $data['comment'] ?? null
+                'comment'    => $data['comment'] ?? null,
+                'image'      => $imagePath
             ]);
 
             // B. Grant Reward (10 Points)

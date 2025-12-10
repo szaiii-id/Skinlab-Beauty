@@ -15,7 +15,10 @@ class Review extends Model
         'order_id',
         'rating',
         'comment',
-        'is_hidden'
+        'image',
+        'is_hidden',
+        'admin_reply',
+        'reply_at'
     ];
 
     public function user() {
@@ -24,5 +27,10 @@ class Review extends Model
 
     public function product() {
         return $this->belongsTo(Product::class);
+    }
+
+    public function getImageUrlAttribute()
+    {
+        return $this->image ? asset('storage/' . $this->image) : null;
     }
 }

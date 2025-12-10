@@ -30,6 +30,9 @@ class ProductResource extends JsonResource
                         'id' => $review->id,
                         'rating' => $review->rating,
                         'comment' => $review->comment,
+                        'image' => $review->image, // <--- PENTING: Agar gambar muncul
+                        'admin_reply' => $review->admin_reply, // Agar balasan admin muncul
+                        'reply_at' => $review->reply_at,
                         'created_at' => $review->created_at,
                         'user' => $review->user ? [
                             'id' => $review->user->id,

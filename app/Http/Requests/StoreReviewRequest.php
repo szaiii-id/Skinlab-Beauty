@@ -19,6 +19,7 @@ class StoreReviewRequest extends FormRequest
             'order_id'   => 'required|exists:orders,id',
             'rating'     => 'required|integer|min:1|max:5',
             'comment'    => 'nullable|string|max:500',
+            'image'      => 'nullable|image|max:2048'
         ];
     }
 }

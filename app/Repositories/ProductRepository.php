@@ -20,7 +20,14 @@ class ProductRepository
     public function findByIdWithVariants(int $id): ?Product
     {
         // Eager load reviews juga agar efisien
-        return Product::with(['variants', 'category', 'brand', 'reviews.user'])
+        return Product::with([
+            'variants', 
+            'category', 
+            'brand', 
+            'reviews' => function($q) {
+                $q->latest(); // Review terbaru muncul paling atas
+                $q->with('user'); // Load data user
+            }])
             ->find($id);
     }
 
