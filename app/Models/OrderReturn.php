@@ -16,7 +16,8 @@ class OrderReturn extends Model
         'evidence_file', 
         'solution',
         'status',
-        'admin_note'
+        'admin_note',
+        'is_restocked',
     ];
 
     public function order()
