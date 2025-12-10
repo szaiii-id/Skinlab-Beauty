@@ -35,7 +35,9 @@ use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\Admin\RewardController as AdminRewardController;
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\BanRequestController;
-use App\Http\Controllers\Admin\AdminOrderController; 
+use App\Http\Controllers\Admin\AdminOrderController;
+use App\Http\Controllers\Admin\AdminReturnController;
+use App\Http\Controllers\Admin\AdminReviewController;
 
 /*
 |--------------------------------------------------------------------------
@@ -83,6 +85,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/regions/provinces', [RegionController::class, 'getProvinces']);
         Route::get('/regions/cities/{provinceCode}', [RegionController::class, 'getCities']);
         Route::get('/regions/districts/{cityCode}', [RegionController::class, 'getDistricts']);
+
+        Route::get('/orders/{id}/track', [OrderController::class, 'track'])->name('orders.track-api');
+
     });
 
     // --- SHOPPING FEATURES ---
@@ -173,10 +178,28 @@ Route::prefix('skinlab-center')->name('admin.')->group(function() {
         Route::post('orders/{id}/cancel', [AdminOrderController::class, 'cancel'])->name('orders.cancel');
         Route::post('orders/{id}/book', [AdminOrderController::class, 'book'])->name('orders.book'); // Request Resi
         Route::get('orders/{id}/label', [AdminOrderController::class, 'printLabel'])->name('orders.label'); // Cetak Label
-
-        // Route untuk Schedule & Bulk
         Route::post('orders/schedule-pickup', [AdminOrderController::class, 'schedulePickup'])->name('orders.schedule-pickup');
-        Route::post('orders/bulk-book', [AdminOrderController::class, 'bulkBook'])->name('orders.bulk-book');
+
+        Route::post('/orders/bulk-book', [AdminOrderController::class, 'bulkBook'])->name('orders.bulk-book');
+        Route::post('/orders/bulk-schedule-pickup', [AdminOrderController::class, 'bulkSchedulePickup'])->name('orders.bulk-schedule-pickup');
+        Route::post('/orders/bulk-schedule', [AdminOrderController::class, 'schedulePickup'])->name('orders.schedule-pickup');
+        Route::post('/orders/bulk-cancel', [AdminOrderController::class, 'bulkCancel'])->name('orders.bulk-cancel');
+        Route::post('/orders/bulk-update-status', [AdminOrderController::class, 'bulkUpdateStatus'])->name('orders.bulk-update-status');
+        Route::post('/orders/bulk-print-labels', [AdminOrderController::class, 'bulkPrintLabels'])->name('orders.bulk-print-labels');
+
+        Route::post('/orders/{id}/reject-cancellation', [AdminOrderController::class, 'rejectCancellation'])
+        ->name('orders.reject-cancellation');
+        // retrun management
+        Route::resource('returns', AdminReturnController::class)->only(['index', 'show', 'update']);
+
+        // Review Management
+        Route::prefix('reviews')->name('reviews.')->controller(AdminReviewController::class)->group(function() {
+            Route::get('/', 'index')->name('index');
+            Route::patch('/{id}/toggle', 'toggleHidden')->name('toggle'); // Untuk Hide/Show
+            Route::delete('/{id}', 'destroy')->name('destroy'); // Untuk Hapus Permanen
+            Route::post('/{id}/reply', 'reply')->name('reply');
+        });
+
         // Customer Management
         Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
         Route::post('customers/send-gift', [CustomerController::class, 'sendGift'])->name('customers.send-gift');
