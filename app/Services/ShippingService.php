@@ -127,7 +127,7 @@ class ShippingService
             $order->update([
                 'shipping_tracking_number' => $noResi,
                 'komerce_order_id'         => $data['order_id'],
-                'order_status'             => 'shipped' // Ubah status setelah booking berhasil
+                // 'order_status'             => 'shipped' // Ubah status setelah booking berhasil
             ]);
 
             return $data;
@@ -265,9 +265,6 @@ class ShippingService
         throw new Exception("Failed to fetch details: " . $response->body());
     }
 
-    /**
-     * Schedule Pickup (Admin Feature)
-     */
     public function schedulePickup(array $orderIds, string $date, string $time, string $vehicle): array
     {
         // 1. Filter Orders that have Tracking Number
@@ -292,6 +289,8 @@ class ShippingService
             'orders'         => $komerceOrderNumbers
         ];
 
+        Log::info('KOMERCE SCHEDULE PICKUP REQUEST:', $payload);
+
         // 3. Request
         $response = Http::withHeaders([
             'x-api-key'    => $this->deliveryKey,
@@ -301,10 +300,45 @@ class ShippingService
         // 4. Handle Response
         $result = $response->json();
 
+        Log::info('KOMERCE SCHEDULE PICKUP RESPONSE:', $result);
+
         if ($response->successful() && ($result['meta']['code'] ?? 0) == 201) {
-            // Update local status (optional)
+            $data = $result['data'];
+            
+            // 5. Update local status
             Order::whereIn('id', $orderIds)->update(['order_status' => 'pickup_scheduled']);
-            return $result['data'];
+            
+            Log::info('Updated order status to pickup_scheduled for IDs:', $orderIds);
+            
+            // 6. AMBIL AWB DARI RESPONSE DAN SIMPAN DI resi_number
+            if (isset($data) && is_array($data)) {
+                foreach ($data as $pickupResult) {
+                    // AWB sebenarnya ada di 'awb' atau 'resi'
+                    $awb = $pickupResult['awb'] ?? $pickupResult['resi'] ?? null;
+                    $orderNo = $pickupResult['order_no'] ?? null; // order_no KOMERCE
+                    $status = $pickupResult['status'] ?? 'failed';
+                    
+                    Log::info('Processing pickup result:', [
+                        'order_no' => $orderNo,
+                        'awb' => $awb,
+                        'status' => $status
+                    ]);
+                    
+                    if ($status === 'success' && $awb && $orderNo) {
+                        // SIMPAN AWB di resi_number
+                        $updated = Order::where('shipping_tracking_number', $orderNo)
+                            ->update(['resi_number' => $awb]);
+                        
+                        Log::info("Saved AWB to resi_number for order {$orderNo}: {$awb} (updated: {$updated})");
+                    } else {
+                        Log::warning("Failed to save AWB for order {$orderNo}", $pickupResult);
+                    }
+                }
+            } else {
+                Log::warning('No data.orders found in response:', $data);
+            }
+            
+            return $data;
         }
 
         throw new Exception("Pickup Schedule Failed: " . ($result['meta']['message'] ?? 'Unknown Error'));

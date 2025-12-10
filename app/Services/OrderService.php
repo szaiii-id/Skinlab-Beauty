@@ -142,7 +142,7 @@ class OrderService
     }
 
     /**
-     * Handle Order Cancellation Logic
+     * Handle Order Cancellation Logic (User Side)
      */
     public function cancelOrder(User $user, int $orderId, string $reason): array
     {
@@ -152,29 +152,44 @@ class OrderService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if (!in_array($order->order_status, ['pending', 'paid'])) {
+            // Gunakan Constants agar konsisten
+            if (!in_array($order->order_status, [Order::STATUS_PENDING, Order::STATUS_PROCESSING, 'paid'])) { // Sesuaikan jika ada status 'paid' khusus
                 throw new Exception("Order cannot be canceled at this stage.");
             }
 
-            // Record cancellation request
-            OrderCancellation::updateOrCreate(
+            // 1. Catat di tabel OrderCancellation
+            // Kita pakai updateOrCreate: Jika user pernah request lalu ditolak, dan request lagi, record lama diupdate.
+            $cancellation = OrderCancellation::updateOrCreate(
                 ['order_id' => $order->id],
-                ['reason' => $reason, 'status' => 'pending']
+                [
+                    'reason' => $reason, 
+                    'status' => 'pending',
+                    // Reset admin note jika user mengajukan ulang
+                    'admin_note' => null 
+                ]
             );
 
-            // Scenario A: Still Pending (Not processed by Warehouse yet) -> Auto Cancel
-            if ($order->order_status === 'pending') {
-                $order->update(['order_status' => 'canceled']);
-                $order->cancellation()->update(['status' => 'approved']);
+            // Skenario A: Masih Pending (Belum diproses gudang) -> Auto Cancel
+            if ($order->order_status === Order::STATUS_PENDING) {
+                
+                // Update Order Status
+                $order->update(['order_status' => Order::STATUS_CANCELLED]);
+                
+                // Auto Approve di tabel cancellation
+                $cancellation->update(['status' => 'approved']);
 
-                // Restore Stock
+                // Kembalikan Stok
                 foreach ($order->items as $item) {
                     if ($item->productVariant) {
                         $item->productVariant->increment('stock', $item->quantity);
                     }
                 }
 
-                // Send Notification
+                // [TODO]: Jika sistem punya Wallet/Saldo, kembalikan saldo di sini (jika status paid)
+                // if ($order->payment_status === Order::PAYMENT_PAID) {
+                //      $this->walletService->refund($user, $order->total_amount);
+                // }
+
                 $this->fcmService->sendToUser(
                     $user->id,
                     "Order Canceled ✅",
@@ -185,14 +200,14 @@ class OrderService
                 return ['status' => 'canceled', 'message' => 'Order successfully canceled.'];
             }
             
-            // Scenario B: Already Paid -> Request Cancellation
-            elseif ($order->order_status === 'paid') {
+            // Skenario B: Sudah Dibayar/Proses -> Butuh Approval Admin
+            else {
                 $order->update(['order_status' => 'cancellation_requested']);
                 
                 $this->fcmService->sendToUser(
                     $user->id,
                     "Cancellation Requested ⏳",
-                    "Cancellation request for order #{$order->order_number} is under review.",
+                    "Request submitted. Waiting for admin approval.",
                     "/orders"
                 );
 

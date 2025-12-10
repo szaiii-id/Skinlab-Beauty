@@ -96,6 +96,11 @@ class Order extends Model
         return $this->hasMany(OrderReturn::class);
     }
 
+    public function returnRequest()
+    {
+        return $this->hasOne(OrderReturn::class);
+    }
+
     // ============ SCOPES (Fallback jika Elastic mati/belum setup) ============
     
     public function scopeFilter($query, array $filters)
