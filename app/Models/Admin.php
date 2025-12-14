@@ -34,6 +34,7 @@ class Admin extends Authenticatable
     ];
 
 
+
     const ROLE_SUPER_ADMIN = 'super_admin';
     const ROLE_WAREHOUSE = 'warehouse';
     const ROLE_MARKETING = 'marketing';

@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Admin\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\AdminLoginRequest; // <--- PENTING: Import Request Baru
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Inertia; // <--- JANGAN LUPA IMPORT INI
+use Inertia\Inertia;
 
 class LoginController extends Controller
 {
@@ -14,33 +15,43 @@ class LoginController extends Controller
         if (Auth::guard('admin')->check()) {
             return redirect()->route('admin.dashboard');
         }
-        // PERBAIKAN: Gunakan Inertia, bukan view()
         return Inertia::render('Admin/Auth/Login');
     }
 
-    public function login(Request $request)
+    /**
+     * PROSES LOGIN UTAMA
+     * Menggunakan AdminLoginRequest untuk keamanan.
+     */
+    public function login(AdminLoginRequest $request)
     {
-        $request->validate([
-            'email'   => 'required|email',
-            'password' => 'required'
+        // 1. Eksekusi Login & Keamanan (Rate Limiting, Cek Password, Cek Aktif)
+        // Jika gagal/kena limit, otomatis stop di sini dan lempar error ke frontend.
+        $request->authenticate();
+
+        // 2. SECURITY: Regenerasi Session ID (Mencegah Session Fixation)
+        // Ini wajib ada di "Best Practice" keamanan.
+        $request->session()->regenerate();
+
+        // 3. AUDIT: Update Last Login Time & IP
+        // Agar kita tahu kapan terakhir admin ini masuk.
+        $admin = Auth::guard('admin')->user();
+        $admin->update([
+            'last_login_at' => now(),
+            // 'last_login_ip' => $request->ip() // (Opsional: aktifkan jika ada kolom ip di database)
         ]);
 
-        if (Auth::guard('admin')->attempt(['email' => $request->email, 'password' => $request->password], $request->remember)) {
-            
-            if (Auth::guard('admin')->user()->is_active == 0) {
-                Auth::guard('admin')->logout();
-                return back()->withErrors(['email' => 'Account deactivated. Contact Super Admin.']);
-            }
-
-            return redirect()->route('admin.dashboard');
-        }
-
-        return back()->withErrors(['email' => 'Invalid credentials.']);
+        // 4. Redirect ke Dashboard (atau halaman yang ingin dibuka sebelumnya)
+        return redirect()->intended(route('admin.dashboard'));
     }
 
-    public function logout()
+    public function logout(Request $request)
     {
         Auth::guard('admin')->logout();
+
+        // SECURITY: Hapus session server & token
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
         return redirect()->route('admin.login');
     }
 }
