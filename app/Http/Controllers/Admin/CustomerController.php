@@ -71,15 +71,36 @@ class CustomerController extends Controller
                 $request->reward_id
             );
             
+            // KASUS 1: Sukses Sebagian atau Semua
             if ($result['success'] > 0) {
-                $message = "🎁 Success! Gift sent to {$result['success']} users.";
-                if ($result['failed'] > 0) {
-                    $message .= " Failed for {$result['failed']} users.";
+
+                $rewardObj = Reward::find($request->reward_id);
+                $targetUsers = User::whereIn('id', $request->user_ids)->get();
+                
+                foreach ($targetUsers as $targetUser) {
+                    $targetUser->notify(new \App\Notifications\GiftReceived($rewardObj));
                 }
+
+                $message = "🎁 Successfully sent to {$result['success']} users.";
+                
+                // Jika ada yang dilewati (sudah punya)
+                if ($result['skipped'] > 0) {
+                    $message .= " ({$result['skipped']} users skipped - already owned).";
+                }
+                
                 return back()->with('success', $message);
-            } else {
-                return back()->with('error', '❌ Failed to send gifts to any users.');
+            } 
+            
+            // KASUS 2: Gagal Semua (Mungkin karena semua user sudah punya)
+            else if ($result['skipped'] > 0) {
+                return back()->with('warning', "⚠️ No gifts sent. All selected users already have this reward.");
             }
+            
+            // KASUS 3: Error Sistem Lainnya
+            else {
+                return back()->with('error', '❌ Failed to send gifts. Check system logs.');
+            }
+
         } catch (\Exception $e) {
             return back()->with('error', 'System error: ' . $e->getMessage());
         }
@@ -136,6 +157,8 @@ class CustomerController extends Controller
                 
                 // Ban user langsung
                 $user->ban($data['reason'], $admin);
+
+                $user->notify(new \App\Notifications\AccountBanned($data['reason'], $data['description']));
                 
                 // PERBAIKAN 2: Hilangkan json_encode, kirim array murni
                 $evidenceData = $data['evidence_notes'] ? ['notes' => $data['evidence_notes']] : null;
@@ -219,6 +242,12 @@ class CustomerController extends Controller
             }
             
             DB::commit();
+
+            if ($count > 0) {
+                $superAdmins = Admin::where('role', 'super_admin')->get();
+                
+                \Illuminate\Support\Facades\Notification::send($superAdmins, new \App\Notifications\NewBanRequestCreated($admin, $count));
+            }
             
             // PERBAIKAN 3: Ganti Log channel custom jadi Log default
             Log::info('Ban requests submitted', [
@@ -277,6 +306,9 @@ class CustomerController extends Controller
                         'ban_reason' => null,
                         'banned_by' => null
                     ]);
+
+                    $user->notify(new \App\Notifications\AccountRestored());
+
                     
                     // 2. UPDATE HISTORY BAN REQUEST (Best Practice)
                     // Cari request ban terakhir yang statusnya 'approved'
@@ -294,6 +326,7 @@ class CustomerController extends Controller
                             'review_notes' => $newNote
                         ]);
                     }
+
                     
                     $count++;
                 }

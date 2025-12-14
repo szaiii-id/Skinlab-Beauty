@@ -177,39 +177,57 @@ class CustomerService
     }
     
     /**
-     * Send gift to users
+     * Send gift to users (Updated with Duplicate Check)
      */
     public function sendGiftToUsers(array $userIds, int $rewardId)
     {
         $successCount = 0;
         $failedUsers = [];
+        $skippedCount = 0; // Hitung yang dilewati
         
         foreach ($userIds as $userId) {
-            DB::beginTransaction();
+            // Kita tidak pakai Transaction di luar loop agar jika 1 gagal, yang lain tetap jalan
+            // Transaction dipindah ke dalam try block per user
             
             try {
                 $user = User::find($userId);
                 
-                // Skip jika user banned (Safety Check)
+                // 1. Cek User Exist & Banned
                 if (!$user || $user->is_banned) {
-                    $failedUsers[] = "User {$userId}: Not found or Banned";
-                    DB::rollBack();
+                    $failedUsers[] = "User #{$userId}: Not found or Banned";
+                    continue;
+                }
+
+                // 2. CEK DUPLIKAT (VALIDASI LOGIC)
+                // Cek apakah user sudah punya voucher ini dan belum dipakai (atau atur logic sesuai kebutuhan)
+                $alreadyHas = DB::table('user_rewards')
+                    ->where('user_id', $user->id)
+                    ->where('reward_id', $rewardId)
+                    // ->where('status', 'unused') // Opsional: jika ingin membolehkan kirim lagi kalau yang lama sudah dipakai
+                    ->exists();
+
+                if ($alreadyHas) {
+                    $skippedCount++;
                     continue;
                 }
                 
+                // Mulai Transaksi Database per User
+                DB::beginTransaction();
+
+                // 3. Proses Claim
                 $voucher = $this->rewardService->claimReward($user, $rewardId);
                 
-                // Notifikasi
+                // 4. Kirim Notifikasi
                 $user->notify(new \App\Notifications\GiftReceivedNotification(
                     $voucher->reward->name, 
                     $voucher->code
                 ));
                 
-                // FCM
+                // 5. Kirim FCM
                 $this->fcmService->sendToUser(
                     $user->id, 
                     "🎁 Surprise Gift!", 
-                    "You received {$voucher->reward->name}", 
+                    "You received {$voucher->reward->name}. Check your voucher code now!", 
                     '/rewards'
                 );
                 
@@ -218,14 +236,15 @@ class CustomerService
                 
             } catch (\Exception $e) {
                 DB::rollBack();
-                $failedUsers[] = "User {$userId}: " . $e->getMessage();
+                $failedUsers[] = "User #{$userId} Error: " . $e->getMessage();
                 Log::error("Gift Error User {$userId}: " . $e->getMessage());
             }
         }
         
         return [
             'success' => $successCount,
-            'failed' => count($failedUsers),
+            'failed' => count($failedUsers), // Total gagal + skipped
+            'skipped' => $skippedCount,      // Spesifik yang skipped
             'failed_details' => $failedUsers
         ];
     }

@@ -55,6 +55,10 @@ class AdminReviewController extends Controller
 
         $status = $review->is_hidden ? 'hidden' : 'visible';
 
+        if ($review->is_hidden && $review->user) {
+            $review->user->notify(new \App\Notifications\ReviewHidden($review));
+        }
+
         return back()->with('success', "Review is now {$status}.");
     }
 
@@ -84,6 +88,10 @@ class AdminReviewController extends Controller
             'admin_reply' => $request->reply,
             'reply_at' => now()
         ]);
+
+        if ($review->user) {
+            $review->user->notify(new \App\Notifications\ReviewReplied($review));
+        }
 
         return back()->with('success', 'Balasan berhasil dikirim.');
     }

@@ -113,6 +113,10 @@ class AdminReturnController extends Controller
                     $message = 'Request approved. Item marked as damaged (No stock restore).';
                 }
 
+                if ($order->user) {
+                    $order->user->notify(new \App\Notifications\ReturnRequestApproved($returnRequest));
+                }
+
             } else {
                 // --- REJECT LOGIC ---
                 
@@ -133,6 +137,10 @@ class AdminReturnController extends Controller
                 }
 
                 $message = 'Return request rejected. Order reverted to completed.';
+
+                if ($order->user) {
+                    $order->user->notify(new \App\Notifications\ReturnRequestRejected($returnRequest));
+                }
             }
 
             DB::commit();

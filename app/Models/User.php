@@ -23,6 +23,9 @@ class User extends Authenticatable
         'password',
         'current_points', 
         'is_banned',
+        'banned_at',
+        'ban_reason',
+        'banned_by',
     ];
 
     protected $hidden = [

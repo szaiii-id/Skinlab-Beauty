@@ -151,6 +151,10 @@ class AdminOrderController extends Controller
                 }
                 
                 $order->update($updateData);
+
+                if ($order->user) {
+                    $order->user->notify(new \App\Notifications\OrderStatusUpdated($order));
+                }
                 
                 Log::info('Order updated successfully', [
                     'order_id' => $order->id,
@@ -209,6 +213,10 @@ class AdminOrderController extends Controller
                 // Opsional: Append note ke tabel order utama juga
                 'notes' => $order->notes . "\n[Admin Cancelled]: " . $request->reason
             ]);
+
+            if ($order->user) {
+                $order->user->notify(new \App\Notifications\OrderCancelled($order));
+            }
 
             // 3. Kembalikan Stok (Restock)
             foreach ($order->items as $item) {
@@ -626,6 +634,10 @@ class AdminOrderController extends Controller
 
             // 2. Revert Order Status (Usually back to 'processing' since it was paid)
             $order->update(['order_status' => 'processing']);
+
+            if ($order->user) {
+                $order->user->notify(new \App\Notifications\CancellationRejected($order));
+            }
 
             // 3. Optional: Send Notification to User
             // $this->fcmService->send(...)
