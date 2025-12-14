@@ -28,6 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
         ]);
+
+        $middleware->alias([
+            'role' => \App\Http\Middleware\EnsureAdminRole::class,
+        ]);
         
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
         
