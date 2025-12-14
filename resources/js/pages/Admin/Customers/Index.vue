@@ -4,12 +4,15 @@ import { Head, router } from '@inertiajs/vue3';
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import axios from 'axios'; 
 import { 
-    Search, Filter, Gift, Mail, User, Ban, 
-    ChevronDown, AlertCircle, Loader2, Sparkles, 
+    Search, Filter, Gift, Mail, User, 
+    ChevronDown, AlertCircle, Loader2, 
     Crown, Bed, ShoppingBag, TrendingUp, 
-    ShieldAlert, ShieldCheck, AlertTriangle, Loader, CheckCircle2
+    ShieldAlert, ShieldCheck, AlertTriangle, CheckCircle2
 } from 'lucide-vue-next';
 import Swal from 'sweetalert2';
+
+// IMPORT THE SEPARATED COMPONENT
+import GiftVoucherModal from '@/components/GiftVoucherModal.vue';
 
 defineOptions({ layout: AdminLayout });
 
@@ -22,18 +25,16 @@ const props = defineProps({
 
 // State
 const search = ref(props.filters?.search || '');
-
-// PERBAIKAN: Gunakan '??' agar lebih kuat menangkap nilai null
 const filter = ref(props.filters?.filter ?? 'all'); 
 
 const selectedUsers = ref(new Set());
 const isSelectAllPage = ref(false);
-const showGiftModal = ref(false);
-const selectedRewardId = ref('');
-const isSending = ref(false);
 const searchDebounce = ref(null);
 
-// State Ban & Unban
+// Gift Modal State (Boolean only, logic is in component)
+const showGiftModal = ref(false);
+
+// Ban & Unban State
 const showBanModal = ref(false);
 const isSubmittingBan = ref(false);
 const isSubmittingUnban = ref(false);
@@ -41,7 +42,7 @@ const banReason = ref('return_abuse');
 const banDescription = ref('');
 const banEvidence = ref('');
 
-// Computed
+// Computed Filters
 const filterInfo = computed(() => {
     const infos = {
         all: { label: 'All Customers', icon: TrendingUp, desc: 'Active customers sorted by last activity' },
@@ -60,18 +61,6 @@ const isSuperAdmin = computed(() => {
 const adminRole = computed(() => props.currentAdmin?.role || 'marketing');
 
 const canRequestBan = computed(() => props.currentAdmin?.can_request_ban || props.currentAdmin?.is_active || true);
-
-const getBanReasonLabel = (reason) => {
-    const labels = {
-        'return_abuse': 'Return Abuse (≥3 invalid returns)',
-        'fraud': 'Fraud / Fake Claims',
-        'toxic_behavior': 'Toxic Behavior',
-        'payment_issue': 'Payment Issue',
-        'policy_violation': 'Policy Violation',
-        'other': 'Other'
-    };
-    return labels[reason] || reason;
-};
 
 // Formatter
 const formatCurrency = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(val) || 0);
@@ -207,45 +196,13 @@ const submitUnban = async () => {
     }
 };
 
-// Gift modal logic
+// ============ GIFT LOGIC (Using Component) ============
 const openGiftModal = () => {
     if (selectedUsers.value.size === 0) {
         Swal.fire({ icon: 'warning', title: 'No Users Selected', text: 'Please select users.' });
         return;
     }
     showGiftModal.value = true;
-    selectedRewardId.value = props.giftRewards.length > 0 ? props.giftRewards[0].id : '';
-};
-
-const confirmSendGift = async () => {
-    if (!selectedRewardId.value) return;
-    const confirmResult = await Swal.fire({
-        title: `Send Gift to ${selectedUsers.value.size} Users?`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Yes, Send Now!',
-        confirmButtonColor: '#ec4899'
-    });
-    
-    if (confirmResult.isConfirmed) {
-        isSending.value = true;
-        router.post(route('admin.customers.send-gift'), {
-            user_ids: Array.from(selectedUsers.value),
-            reward_id: selectedRewardId.value
-        }, {
-            onSuccess: () => {
-                showGiftModal.value = false;
-                selectedUsers.value.clear();
-                isSelectAllPage.value = false;
-                isSending.value = false;
-                Swal.fire('Success!', 'Gifts sent successfully.', 'success');
-            },
-            onError: () => {
-                isSending.value = false;
-                Swal.fire('Error', 'Failed to send gifts.', 'error');
-            }
-        });
-    }
 };
 </script>
 
@@ -254,24 +211,24 @@ const confirmSendGift = async () => {
     
     <div class="max-w-7xl mx-auto">
         
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+        <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8">
             <div>
                 <h1 class="text-3xl font-extrabold bg-gradient-to-r from-pink-600 to-rose-600 text-transparent bg-clip-text tracking-tight">
                     Customer Management
                 </h1>
                 <div class="flex items-center gap-2 mt-2">
-                    <component :is="filterInfo.icon" class="w-4 h-4" />
+                    <component :is="filterInfo.icon" class="w-4 h-4 text-gray-500" />
                     <span class="text-sm font-medium text-gray-700">{{ filterInfo.label }}</span>
                     <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                         {{ users.total }} users
                     </span>
-                    <span class="text-xs text-gray-500 font-medium">• {{ filterInfo.desc }}</span>
+                    <span class="hidden sm:inline text-xs text-gray-500 font-medium">• {{ filterInfo.desc }}</span>
                     
-                    <span v-if="currentAdmin" class="text-xs font-bold px-2 py-0.5 rounded-full ml-2"
+                    <span v-if="currentAdmin" class="text-xs font-bold px-2 py-0.5 rounded-full ml-2 border"
                         :class="{
-                            'bg-blue-100 text-blue-700': adminRole === 'marketing',
-                            'bg-green-100 text-green-700': adminRole === 'warehouse',
-                            'bg-purple-100 text-purple-700': adminRole === 'super_admin'
+                            'bg-blue-50 text-blue-700 border-blue-100': adminRole === 'marketing',
+                            'bg-green-50 text-green-700 border-green-100': adminRole === 'warehouse',
+                            'bg-purple-50 text-purple-700 border-purple-100': adminRole === 'super_admin'
                         }">
                         <span v-if="isSuperAdmin">👑 </span>
                         {{ adminRole.replace('_', ' ') }}
@@ -279,65 +236,74 @@ const confirmSendGift = async () => {
                 </div>
             </div>
             
-            <div class="flex flex-wrap items-center gap-3">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full xl:w-auto">
                 
-                <div v-if="selectedUsers.size > 0" class="flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+                <div v-if="selectedUsers.size > 0" class="w-full sm:w-auto flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-bottom-2 bg-white p-1.5 rounded-xl border border-rose-100 shadow-lg shadow-rose-50/50">
                     
+                    <span class="text-xs font-bold text-rose-700 px-3 whitespace-nowrap">{{ selectedUsers.size }} Selected</span>
+                    <div class="h-5 w-px bg-rose-200 mx-1"></div>
+
                     <button 
-                        v-if="isSuperAdmin"
+                        v-if="isSuperAdmin && filter === 'banned'"
                         @click="submitUnban"
                         :disabled="isSubmittingUnban"
-                        class="h-11 px-4 bg-white border border-emerald-200 text-emerald-600 font-bold rounded-xl hover:bg-emerald-50 transition-all flex items-center gap-2 shadow-sm"
+                        class="h-9 px-3 bg-emerald-50 border border-emerald-200 text-emerald-600 font-bold rounded-lg hover:bg-emerald-100 transition-all flex items-center gap-1.5 text-xs shadow-sm"
                     >
-                        <CheckCircle2 class="w-4 h-4" />
-                        {{ isSubmittingUnban ? 'Processing...' : 'Reactivate User' }}
+                        <CheckCircle2 class="w-3.5 h-3.5" />
+                        {{ isSubmittingUnban ? 'Processing...' : 'Reactivate' }}
                     </button>
 
                     <button 
-                        v-if="canRequestBan"
+                        v-if="canRequestBan && filter !== 'banned'"
                         @click="openBanModal"
-                        class="h-11 px-4 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-all flex items-center gap-2 shadow-sm"
+                        class="h-9 px-3 bg-white border border-red-200 text-red-600 font-bold rounded-lg hover:bg-red-50 transition-all flex items-center gap-1.5 text-xs shadow-sm"
                     >
-                        <AlertTriangle class="w-4 h-4" />
-                        {{ isSuperAdmin ? '⚡ Quick Ban' : '🚨 Request Ban' }} 
-                        ({{ selectedUsers.size }})
+                        <AlertTriangle class="w-3.5 h-3.5" />
+                        {{ isSuperAdmin ? 'Quick Ban' : 'Request Ban' }}
                     </button>
                     
                     <button 
                         @click="openGiftModal"
-                        class="h-11 px-5 bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
+                        class="h-9 px-4 bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold rounded-lg shadow-sm hover:shadow-md hover:scale-105 transition-all flex items-center gap-1.5 text-xs"
                     >
-                        <Gift class="w-4 h-4" /> Send Gift
+                        <Gift class="w-3.5 h-3.5" /> Send Gift
                     </button>
-                    
-                    <div class="w-px h-8 bg-gray-300 mx-1"></div>
                 </div>
                 
-                <div class="relative group">
-                    <Filter class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                <div v-else class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     
-                    <select 
-                        v-model="filter" 
-                        class="h-11 pl-10 pr-8 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 shadow-sm cursor-pointer appearance-none hover:border-gray-300 transition-all"
-                    >
-                        <option value="all">📂 Filter: All Customers</option>
-                        <option value="sleeping_beauty">😴 Sleeping Beauty (>90 Days)</option>
-                        <option value="loyal_queen">👑 Loyal Queen (High Spenders)</option>
-                        <option value="first_time_buyers">🌱 First Time Buyers (30 Days)</option>
-                        <option value="banned">🚫 Banned Users</option>
-                    </select>
+                    <div class="relative group w-full sm:w-auto">
+                        <div class="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 pointer-events-none text-gray-500">
+                            <Filter class="w-4 h-4" />
+                        </div>
+                        
+                        <select 
+                            v-model="filter" 
+                            class="h-11 w-full sm:w-48 pl-10 pr-8 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 shadow-sm cursor-pointer appearance-none hover:border-gray-300 transition-all"
+                        >
+                            <option value="all">Filter: All Users</option>
+                            <option value="sleeping_beauty">😴 Sleeping (>90d)</option>
+                            <option value="loyal_queen">👑 Loyal Queens</option>
+                            <option value="first_time_buyers">🌱 New Buyers</option>
+                            <option value="banned">🚫 Banned Users</option>
+                        </select>
+                        
+                        <div class="absolute right-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none text-gray-400">
+                            <ChevronDown class="w-4 h-4" />
+                        </div>
+                    </div>
                     
-                    <ChevronDown class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-                
-                <div class="relative group">
-                    <Search class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    <input 
-                        v-model="search" 
-                        type="text" 
-                        placeholder="Search name or email..." 
-                        class="h-11 pl-10 pr-4 w-64 border border-gray-200 rounded-xl text-sm font-medium text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 shadow-sm transition-all"
-                    >
+                    <div class="relative group w-full sm:w-auto">
+                        <div class="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 pointer-events-none text-gray-500">
+                            <Search class="w-4 h-4" />
+                        </div>
+                        <input 
+                            v-model="search" 
+                            type="text" 
+                            placeholder="Search name/email..." 
+                            class="h-11 w-full sm:w-64 pl-10 pr-4 border border-gray-200 rounded-xl text-sm font-medium text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 shadow-sm transition-all"
+                        >
+                    </div>
                 </div>
             </div>
         </div>
@@ -627,6 +593,15 @@ const confirmSendGift = async () => {
             </div>
         </div>
     </div>
+
+    <GiftVoucherModal 
+        :show="showGiftModal"
+        :users="selectedUsers"
+        :rewards="giftRewards" 
+        :submit-url="route('admin.customers.send-gift')" 
+        @close="showGiftModal = false"
+        @success="() => { selectedUsers.clear(); isSelectAllPage = false; }"
+    />
 </template>
 
 <style scoped>

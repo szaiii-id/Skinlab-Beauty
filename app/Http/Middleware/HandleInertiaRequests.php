@@ -62,7 +62,9 @@ class HandleInertiaRequests extends Middleware
             // 'Flash message' untuk Pop-up Modal Sukses
             'flash' => [
                 'success' => fn () => $request->session()->get('toast_success'),
-                'error' => fn () => $request->session()->get('toast_error'),
+                'error' => fn () => $request->session()->get('toast_error') ?? $request->session()->get('error'),
+                
+                'warning' => fn () => $request->session()->get('warning'),
                 // 'midtrans_redirect_url' => fn () => $request->session()->get('midtrans_redirect_url'),
                 'snap_token' => fn () => $request->session()->get('snap_token'),
             ],

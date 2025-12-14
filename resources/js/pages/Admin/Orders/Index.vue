@@ -89,6 +89,7 @@ const getStatusClass = (status) => {
         case 'processing': return 'bg-blue-100 text-blue-800 border-blue-200 shadow-sm';
         case 'shipped': return 'bg-purple-100 text-purple-800 border-purple-200 shadow-sm';
         case 'completed': return 'bg-emerald-100 text-emerald-800 border-emerald-200 shadow-sm';
+        case 'returned': return 'bg-red-50 text-red-800 border-red-200 shadow-sm';
         case 'cancellation_requested': return 'bg-orange-100 text-orange-800 border-orange-200 shadow-sm';
         case 'cancelled': return 'bg-red-100 text-red-800 border-red-200 shadow-sm';
         case 'canceled': return 'bg-red-100 text-red-800 border-red-200 shadow-sm';
@@ -120,7 +121,7 @@ const normalizeStatus = (status) => {
 };
 
 const canSelectOrder = (order) => {
-    return !['completed', 'cancelled'].includes(order.order_status);
+    return !['completed', 'cancelled', 'returned'].includes(order.order_status);
 };
 
 // Computed: Filter orders untuk berbagai bulk actions
@@ -188,7 +189,7 @@ const canMarkCompleted = computed(() => {
 // 6. Cancel Orders - untuk orders yang belum completed/cancelled
 const ordersForCancel = computed(() => {
     return selectedOrderObjects.value.filter(order => 
-        !['completed', 'cancelled'].includes(order.order_status)
+        !['completed', 'cancelled', 'returned'].includes(order.order_status)
     );
 });
 
@@ -845,18 +846,18 @@ const submitCancel = () => {
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="px-3 py-1 rounded-full text-xs font-bold border-2 flex items-center gap-1 w-fit uppercase tracking-wider"
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold border-2 w-fit uppercase tracking-wider whitespace-nowrap"
                                 :class="getStatusClass(order.order_status)">
-                                <span class="w-1.5 h-1.5 rounded-full" 
+                                <span class="w-1.5 h-1.5 rounded-full shrink-0" 
                                     :class="{
                                         'bg-yellow-500': order.order_status === 'pending',
                                         'bg-blue-500': order.order_status === 'processing',
                                         'bg-pink-500': normalizeStatus(order.order_status) === 'pickup_scheduled',
                                         'bg-purple-500': order.order_status === 'shipped',
                                         'bg-emerald-500': order.order_status === 'completed',
-                                        'bg-red-500': order.order_status === 'cancelled'
+                                        'bg-red-500': ['cancelled', 'returned'].includes(order.order_status)
                                     }"></span>
-                                {{ order.order_status.replace('_', ' ') }}
+                                {{ order.order_status.replace(/_/g, ' ') }}
                             </span>
                         </td>
                         <td class="px-6 py-4 text-right">

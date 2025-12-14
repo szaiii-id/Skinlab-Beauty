@@ -1,8 +1,18 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue'; // Tambah computed
 
-const user = usePage().props.auth.user;
+const page = usePage();
+const user = page.props.auth.user;
+
+// --- ROLE PERMISSION HELPER (BARU) ---
+// Fungsi ini mengecek apakah user yang login punya hak akses
+const userRole = computed(() => page.props.auth.user.role);
+
+const can = (roles: string[]) => {
+    return roles.includes(userRole.value);
+};
+// -------------------------------------
 
 // --- SCROLL PERSISTENCE ---
 const sidebarNav = ref<HTMLElement | null>(null);
@@ -23,14 +33,8 @@ onMounted(() => {
 
 // --- FUNGSI IS ACTIVE YANG REAKTIF ---
 const isActive = (routeName: string) => {
-    // TRICK PENTING: 
-    // Kita akses 'usePage().url' di sini. Walaupun tidak dipakai variabelnya,
-    // ini memberi tahu Vue: "Hei, kalau URL berubah, jalankan fungsi ini lagi!"
     const currentUrl = usePage().url; 
-
     try {
-        // Cek exact match ATAU wildcard (untuk anak menu)
-        // Contoh: 'admin.ban-requests' akan cocok dengan 'admin.ban-requests.index'
         return route().current(routeName) || route().current(routeName + '*');
     } catch (e) {
         return false;
@@ -77,7 +81,7 @@ const isActive = (routeName: string) => {
                 </Link>
             </div>
 
-            <div>
+            <div v-if="can(['super_admin', 'warehouse'])">
                 <p class="px-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-3">Catalog & Stock</p>
                 <div class="space-y-1">
                     
@@ -114,14 +118,31 @@ const isActive = (routeName: string) => {
                         All Products
                     </Link>
 
-                    <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-gray-600 hover:bg-pink-50 hover:text-pink-700 transition-all duration-200 group">
-                        <svg class="w-5 h-5 mr-3 text-gray-400 group-hover:text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    <Link 
+                        :href="route('admin.stock-opname.index')" 
+                        class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden"
+                        :class="route().current('admin.stock-opname.*') 
+                            ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-lg shadow-pink-200' 
+                            : 'text-gray-600 hover:bg-pink-50 hover:text-pink-700'"
+                    >
+                        <svg 
+                            class="w-5 h-5 mr-3 transition-colors" 
+                            :class="route().current('admin.stock-opname.*') ? 'text-white' : 'text-gray-400 group-hover:text-pink-600'" 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor" 
+                            stroke-width="2"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                        
                         Stock Opname
-                    </a>
+                    </Link>
                 </div>
             </div>
 
-            <div>
+            <div v-if="can(['super_admin', 'warehouse'])">
                 <p class="px-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-3">Sales</p>
                 <div class="space-y-1">
                     <Link 
@@ -149,7 +170,7 @@ const isActive = (routeName: string) => {
                 </div>
             </div>
 
-            <div>
+            <div v-if="can(['super_admin', 'marketing'])">
                 <p class="px-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-3">Marketing</p>
                 <div class="space-y-1">
                     <Link 
@@ -187,36 +208,58 @@ const isActive = (routeName: string) => {
                         Customer Reviews
                     </Link>
 
-                    <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-gray-600 hover:bg-pink-50 hover:text-pink-700 transition-all duration-200 group">
-                        <svg class="w-5 h-5 mr-3 text-gray-400 group-hover:text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        Skin Analysis Data
-                    </a>
+                    <Link 
+                        :href="route('admin.skin-analysis.index')" 
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group mb-1"
+                        :class="route().current('admin.skin-analysis.*') 
+                            ? 'bg-rose-600 text-white shadow-lg shadow-rose-200' 
+                            : 'text-gray-600 hover:bg-rose-50 hover:text-rose-700'"
+                    >
+                        <svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            stroke-width="2" 
+                            stroke-linecap="round" 
+                            stroke-linejoin="round" 
+                            class="w-5 h-5 transition-colors"
+                            :class="route().current('admin.skin-analysis.*') ? 'text-white' : 'text-gray-400 group-hover:text-rose-600'"
+                        >
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                        </svg>
+                        
+                        <span class="font-medium text-sm">Skin Analysis</span>
+                    </Link>
                 </div>
             </div>
 
-            <div>
+            <div v-if="can(['super_admin', 'marketing'])">
                 <p class="px-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-3">Analytics</p>
                 <div class="space-y-1">
-                    <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-gray-600 hover:bg-pink-50 hover:text-pink-700 transition-all duration-200 group">
-                        <svg class="w-5 h-5 mr-3 text-gray-400 group-hover:text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                        Sales Report
-                    </a>
-                    <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-gray-600 hover:bg-pink-50 hover:text-pink-700 transition-all duration-200 group">
-                        <svg class="w-5 h-5 mr-3 text-gray-400 group-hover:text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-                        Product Performance
-                    </a>
-                    <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-gray-600 hover:bg-pink-50 hover:text-pink-700 transition-all duration-200 group">
-                        <svg class="w-5 h-5 mr-3 text-gray-400 group-hover:text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                        Stock Report
-                    </a>
+                    
+                    <Link 
+                        :href="route('admin.reports.index')" 
+                        class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden"
+                        :class="isActive('admin.reports') 
+                            ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-lg shadow-pink-200' 
+                            : 'text-gray-600 hover:bg-pink-50 hover:text-pink-700'"
+                    >
+                        <svg class="w-5 h-5 mr-3 transition-colors" :class="isActive('admin.reports') ? 'text-white' : 'text-gray-400 group-hover:text-pink-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        Centralized Reports
+                    </Link>
+
                 </div>
             </div>
 
-            <div>
+            <div v-if="can(['super_admin', 'marketing'])">
                 <p class="px-4 text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-3">People</p>
                 <div class="space-y-1">
                     
                     <Link 
+                        v-if="can(['super_admin', 'marketing'])"
                         :href="route('admin.customers.index')" 
                         class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden"
                         :class="isActive('admin.customers') 
@@ -228,6 +271,7 @@ const isActive = (routeName: string) => {
                     </Link>
 
                     <Link 
+                        v-if="can(['super_admin', 'marketing'])"
                         :href="route('admin.ban-requests.index')" 
                         class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden"
                         :class="isActive('admin.ban-requests') 
@@ -240,10 +284,28 @@ const isActive = (routeName: string) => {
                         Ban Requests
                     </Link>
 
-                    <a href="#" class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl text-gray-600 hover:bg-pink-50 hover:text-pink-700 transition-all duration-200 group">
-                        <svg class="w-5 h-5 mr-3 text-gray-400 group-hover:text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0c0 .884-.5 2-2 2h4c-1.5 0-2-1.116-2-2z"></path></svg>
-                        Staff / Admins
-                    </a>
+                    <Link 
+                        v-if="can(['super_admin'])"
+                        :href="route('admin.staff.index')" 
+                        class="flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden mb-1"
+                        :class="route().current('admin.staff.*') 
+                            ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-lg shadow-pink-200' 
+                            : 'text-slate-600 hover:bg-pink-50 hover:text-pink-700'"
+                    >
+                        <svg 
+                            class="w-5 h-5 mr-3 transition-colors" 
+                            :class="route().current('admin.staff.*') ? 'text-white' : 'text-slate-400 group-hover:text-pink-600'" 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor" 
+                            stroke-width="2"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        
+                        Staff & Roles
+                    </Link>
                 </div>
             </div>
 
