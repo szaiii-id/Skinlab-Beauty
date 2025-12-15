@@ -78,6 +78,10 @@ class BanRequestController extends Controller
             // Ban the user
             $banRequest->user->ban($banRequest->reason, $currentAdmin);
             
+            $banRequest->user->notify(new \App\Notifications\AccountBanned(
+                $banRequest->reason, 
+                $banRequest->description // Sertakan deskripsi asli dari request admin
+            ));
             // Update ban request
             $banRequest->update([
                 'status' => BanRequest::STATUS_APPROVED,

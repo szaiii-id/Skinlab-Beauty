@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'fcm' => [
+        'token' => env('FCM_TOKEN'), 
+        'driver' => 'file', // Kita paksa baca file JSON
+    ],
+
+    'firebase' => [
+        'credentials' => storage_path('app/firebase_credentials.json'),
+    ],
+
 ];

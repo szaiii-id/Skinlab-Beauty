@@ -246,6 +246,8 @@ Route::prefix('skinlab-center')->name('admin.')->group(function() {
                 Route::get('/', 'index')->name('index');
                 Route::get('/{id}', 'show')->name('show');
                 Route::post('/{id}/recommend', 'sendRecommendation')->name('recommend');
+                Route::post('/bulk-recommend', 'bulkRecommend')->name('bulk-recommend');
+                // In routes/web.php inside the admin/skin-analysis group:
             });
 
             // Customer & Ban Management

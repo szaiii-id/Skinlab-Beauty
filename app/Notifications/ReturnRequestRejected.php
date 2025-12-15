@@ -6,8 +6,8 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use NotificationChannels\Fcm\FcmChannel;
-use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
+// GANTI INI: Pakai Custom Channel Anda
+use App\Channels\FcmChannel;
 
 class ReturnRequestRejected extends Notification implements ShouldQueue
 {
@@ -21,29 +21,42 @@ class ReturnRequestRejected extends Notification implements ShouldQueue
 
     public function via($notifiable)
     {
+        // Kirim via Database (Lonceng), Email, dan Push Notif (HP/Web)
         return ['database', 'mail', FcmChannel::class];
     }
 
+    /**
+     * FIX: Return Array Sederhana untuk Custom Channel
+     */
     public function toFcm($notifiable)
     {
-        return FcmNotification::create()
-            ->setTitle('Return Rejected ❌')
-            ->setBody('Return request for Order #' . $this->returnRequest->order->order_number . ' was rejected.')
-            ->setData(['type' => 'return_rejected', 'return_id' => (string)$this->returnRequest->id, 'click_action' => 'FLUTTER_NOTIFICATION_CLICK']);
+        return [
+            'title' => 'Return Rejected ❌',
+            'body'  => 'Your return request for Order #' . $this->returnRequest->order->order_number . ' has been rejected.',
+            'link'  => url('/user/orders/' . $this->returnRequest->order_id)
+        ];
     }
 
     public function toMail($notifiable)
     {
         return (new MailMessage)
-            ->error()
+            ->error() // Warna merah (Ditolak)
             ->subject('Update: Return Request Rejected')
-            ->line('Your return request for Order #' . $this->returnRequest->order->order_number . ' has been REJECTED.')
+            ->greeting('Hello ' . $notifiable->name . ',')
+            ->line('We are sorry to inform you that your return request for Order #' . $this->returnRequest->order->order_number . ' has been REJECTED.')
             ->line('**Reason:** ' . $this->returnRequest->admin_note)
+            ->line('Your order status has been reverted to Completed.')
             ->action('View Order', url('/user/orders/' . $this->returnRequest->order_id));
     }
 
     public function toArray($notifiable)
     {
-        return ['title' => 'Return Rejected', 'message' => 'Reason: ' . $this->returnRequest->admin_note, 'return_id' => $this->returnRequest->id];
+        return [
+            'title'     => 'Return Rejected',
+            'message'   => 'Reason: ' . $this->returnRequest->admin_note,
+            'return_id' => $this->returnRequest->id,
+            'link'      => '/user/orders/' . $this->returnRequest->order_id,
+            'type'      => 'return_rejected'
+        ];
     }
 }

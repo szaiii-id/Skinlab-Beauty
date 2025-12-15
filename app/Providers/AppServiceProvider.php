@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Request; 
+use Illuminate\Support\Facades\Config;
 
 // Models & Observers
 use App\Models\Brand;
@@ -29,6 +30,23 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+
+        $credentialPath = config('services.firebase.credentials');
+        
+        // 1. Set Path Credentials
+        Config::set('firebase.credentials', $credentialPath);
+        
+        // 2. Set Driver FCM agar membaca File JSON
+        Config::set('fcm.driver', 'file');
+        
+        // 3. Set Http Client (Required by Package)
+        Config::set('fcm.http', [
+            'server_key' => env('FCM_SERVER_KEY', ''),
+            'sender_id' => env('FCM_SENDER_ID', ''),
+            'server_send_url' => 'https://fcm.googleapis.com/fcm/send',
+            'server_group_url' => 'https://android.googleapis.com/gcm/notification',
+            'timeout' => 30.0,
+        ]);
         // 1. TRUST PROXIES (WAJIB AGAR NGROK TERBACA HTTPS)
         Request::setTrustedProxies(
             ['*'], 

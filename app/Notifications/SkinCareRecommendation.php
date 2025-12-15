@@ -5,8 +5,8 @@ namespace App\Notifications;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
-use NotificationChannels\Fcm\FcmChannel;
-use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
+// GANTI INI: Pakai Custom Channel Anda
+use App\Channels\FcmChannel;
 
 class SkinCareRecommendation extends Notification implements ShouldQueue
 {
@@ -22,21 +22,30 @@ class SkinCareRecommendation extends Notification implements ShouldQueue
 
     public function via($notifiable)
     {
-        // NO EMAIL. Marketing works better via Push.
+        // NO EMAIL. Fokus ke Push Notification untuk marketing.
         return ['database', FcmChannel::class];
     }
 
+    /**
+     * FIX: Return Array Sederhana untuk Custom Channel
+     */
     public function toFcm($notifiable)
     {
-        return FcmNotification::create()
-            ->setTitle('Skin Recommendation 💖')
-            ->setBody('Based on your skin profile, we recommend: ' . $this->product->name)
-            ->setImage($this->product->image_url)
-            ->setData(['type' => 'recommendation', 'product_slug' => $this->product->slug, 'click_action' => 'FLUTTER_NOTIFICATION_CLICK']);
+        return [
+            'title' => 'Skin Recommendation 💖',
+            'body'  => 'Based on your skin profile, we recommend: ' . $this->product->name,
+            'link'  => url('/product/' . $this->product->slug) // Link langsung ke produk
+        ];
     }
 
     public function toArray($notifiable)
     {
-        return ['title' => 'New Recommendation', 'message' => 'Check out our recommendation for your skin.', 'product_id' => $this->product->id];
+        return [
+            'title'      => 'New Recommendation',
+            'message'    => 'Check out our recommendation for your skin: ' . $this->product->name,
+            'product_id' => $this->product->id,
+            'link'       => '/product/' . $this->product->slug,
+            'type'       => 'recommendation'
+        ];
     }
 }

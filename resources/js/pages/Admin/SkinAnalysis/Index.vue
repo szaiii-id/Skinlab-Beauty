@@ -1,14 +1,14 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch } from 'vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import { 
-    Search, Filter, Eye, Activity, Droplets, Sun, Wind, 
-    ChevronRight, CheckSquare, Sparkles, Loader2, Gift 
+    Search, Filter, Activity, Droplets, Sun, Wind, 
+    ChevronRight, Sparkles, Loader2, Gift 
 } from 'lucide-vue-next';
 import Swal from 'sweetalert2';
 
-// 1. IMPORT THE COMPONENT
+// Import the Modal Component
 import GiftVoucherModal from '@/components/GiftVoucherModal.vue';
 
 defineOptions({ layout: AdminLayout });
@@ -17,7 +17,7 @@ const props = defineProps({
     profiles: Object,
     filters: Object,
     counts: Object,
-    giftRewards: Array // Ensure Controller passes this!
+    giftRewards: Array // Data from Controller
 });
 
 // State
@@ -26,11 +26,11 @@ const typeFilter = ref(props.filters.type || 'all');
 const searchDebounce = ref(null);
 
 // Bulk Action State
-const selectedIds = ref(new Set());
+const selectedIds = ref(new Set()); // We use Set for efficient toggling
 const isProcessingBulk = ref(false);
-const showGiftModal = ref(false); // State for Gift Modal
+const showGiftModal = ref(false); 
 
-// Watchers
+// Watchers for Search & Filter
 watch([search, typeFilter], () => {
     clearTimeout(searchDebounce.value);
     searchDebounce.value = setTimeout(() => {
@@ -59,7 +59,7 @@ const toggleSelect = (id) => {
     else selectedIds.value.add(id);
 };
 
-// Bulk Recommend Logic
+// Bulk Recommend Logic (AI Recommendation)
 const submitBulkRecommend = () => {
     Swal.fire({
         title: `Auto-Recommend to ${selectedIds.value.size} Users?`,
@@ -73,7 +73,7 @@ const submitBulkRecommend = () => {
         if (result.isConfirmed) {
             isProcessingBulk.value = true;
             router.post(route('admin.skin-analysis.bulk-recommend'), {
-                ids: Array.from(selectedIds.value)
+                ids: Array.from(selectedIds.value) // Convert Set to Array
             }, {
                 onSuccess: () => {
                     selectedIds.value.clear();
@@ -86,7 +86,7 @@ const submitBulkRecommend = () => {
     });
 };
 
-// Helper Colors
+// Helper: Skin Type Colors
 const getSkinTypeClass = (type) => {
     switch(type) {
         case 'Oily Skin': return 'bg-amber-50 text-amber-700 border-amber-100 ring-1 ring-amber-500/10';
@@ -262,11 +262,13 @@ const formatDate = (date) => new Date(date).toLocaleDateString('en-GB', { day: '
                                     </div>
                                 </div>
                             </td>
+
                             <td class="px-6 py-4">
                                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border" :class="getSkinTypeClass(profile.skin_type)">
                                     {{ profile.skin_type }}
                                 </span>
                             </td>
+
                             <td class="px-6 py-4">
                                 <div class="flex flex-wrap gap-1.5">
                                     <span v-for="(concern, idx) in profile.skin_concerns.slice(0, 2)" :key="idx" 
@@ -278,9 +280,11 @@ const formatDate = (date) => new Date(date).toLocaleDateString('en-GB', { day: '
                                     </span>
                                 </div>
                             </td>
+
                             <td class="px-6 py-4 text-sm font-medium text-slate-500">
                                 {{ formatDate(profile.updated_at) }}
                             </td>
+
                             <td class="px-6 py-4 text-right">
                                 <Link :href="route('admin.skin-analysis.show', profile.id)" 
                                       class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-bold hover:border-rose-200 hover:text-rose-600 hover:shadow-sm transition-all group/btn">
@@ -322,7 +326,7 @@ const formatDate = (date) => new Date(date).toLocaleDateString('en-GB', { day: '
 
     <GiftVoucherModal 
         :show="showGiftModal"
-        :users="selectedIds"
+        :users="Array.from(selectedIds)" 
         :rewards="giftRewards" 
         :submit-url="route('admin.customers.send-gift')" 
         @close="showGiftModal = false"

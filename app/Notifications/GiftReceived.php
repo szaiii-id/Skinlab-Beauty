@@ -3,10 +3,9 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueue; // Required for Queue
 use Illuminate\Notifications\Notification;
-use NotificationChannels\Fcm\FcmChannel;
-use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
+use App\Channels\FcmChannel; 
 
 class GiftReceived extends Notification implements ShouldQueue
 {
@@ -20,20 +19,31 @@ class GiftReceived extends Notification implements ShouldQueue
 
     public function via($notifiable)
     {
-        // NO EMAIL. Push notification is enough to make them open the app.
-        return ['database', FcmChannel::class];
+        // Use your Custom Channel and Database
+        return [FcmChannel::class, 'database'];
     }
 
+    /**
+     * Data for your Custom FcmChannel
+     */
     public function toFcm($notifiable)
     {
-        return FcmNotification::create()
-            ->setTitle('You Received a Gift! 🎁')
-            ->setBody('Congratulations! You got: ' . $this->reward->name)
-            ->setData(['type' => 'gift_received', 'click_action' => 'FLUTTER_NOTIFICATION_CLICK']);
+        return [
+            'title' => 'HOORAY! You Received a Gift 🎁',
+            'body'  => 'Congratulations! You got: ' . $this->reward->name,
+            'link'  => url('/user/rewards')
+        ];
     }
 
+    /**
+     * Data for Database Notification
+     */
     public function toArray($notifiable)
     {
-        return ['title' => 'Gift Received', 'message' => 'You received ' . $this->reward->name, 'type' => 'gift'];
+        return [
+            'title'   => 'New Gift',
+            'message' => $this->reward->name,
+            'link'    => '/user/rewards'
+        ];
     }
 }

@@ -368,4 +368,17 @@ class User extends Authenticatable
     {
         return !$this->is_banned && !$this->hasPendingBanRequest();
     }
+
+    public function fcm_tokens() 
+    {
+        return $this->hasMany(FcmToken::class); 
+    }
+
+    /**
+     * [PERBAIKAN] Mengambil token dari RELASI
+     */
+    public function routeNotificationForFcm($notification = null)
+    {
+        return FcmToken::where('user_id', $this->id)->pluck('token')->toArray();
+    }
 }

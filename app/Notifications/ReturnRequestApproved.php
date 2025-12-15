@@ -6,8 +6,8 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use NotificationChannels\Fcm\FcmChannel;
-use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
+// GANTI INI: Pakai Custom Channel Anda
+use App\Channels\FcmChannel;
 
 class ReturnRequestApproved extends Notification implements ShouldQueue
 {
@@ -21,29 +21,41 @@ class ReturnRequestApproved extends Notification implements ShouldQueue
 
     public function via($notifiable)
     {
+        // Kirim via Database (Lonceng), Email, dan Push Notif (HP/Web)
         return ['database', 'mail', FcmChannel::class];
     }
 
+    /**
+     * FIX: Return Array Sederhana untuk Custom Channel
+     */
     public function toFcm($notifiable)
     {
-        return FcmNotification::create()
-            ->setTitle('Return Approved ✅')
-            ->setBody('Your return request for Order #' . $this->returnRequest->order->order_number . ' has been approved.')
-            ->setData(['type' => 'return_approved', 'return_id' => (string)$this->returnRequest->id, 'click_action' => 'FLUTTER_NOTIFICATION_CLICK']);
+        return [
+            'title' => 'Return Approved ✅',
+            'body'  => 'Your return request for Order #' . $this->returnRequest->order->order_number . ' has been approved.',
+            'link'  => url('/user/returns/' . $this->returnRequest->id)
+        ];
     }
 
     public function toMail($notifiable)
     {
         return (new MailMessage)
+            ->success() // Warna hijau (berita bagus)
             ->subject('Action Required: Return Request Approved')
             ->greeting('Hello ' . $notifiable->name . ',')
             ->line('Good news! Your return request for Order #' . $this->returnRequest->order->order_number . ' has been APPROVED.')
-            ->line('**Next Step:** Please ship the item(s) to our warehouse.')
+            ->line('**Next Step:** Please ship the item(s) to our warehouse within 3 days.')
             ->action('View Instructions', url('/user/returns/' . $this->returnRequest->id));
     }
 
     public function toArray($notifiable)
     {
-        return ['title' => 'Return Approved', 'message' => 'Return for Order #' . $this->returnRequest->order->order_number . ' approved.', 'return_id' => $this->returnRequest->id];
+        return [
+            'title'     => 'Return Approved',
+            'message'   => 'Return for Order #' . $this->returnRequest->order->order_number . ' approved.',
+            'return_id' => $this->returnRequest->id,
+            'link'      => '/user/returns/' . $this->returnRequest->id,
+            'type'      => 'return_approved'
+        ];
     }
 }

@@ -7,7 +7,7 @@ import Swal from 'sweetalert2';
 // Props received from Parent
 const props = defineProps({
     show: Boolean,           // Show status
-    users: Set,              // Selected users (Set of IDs)
+    users: Array,              // Selected users (Set of IDs)
     rewards: Array,          // Reward data from DB
     submitUrl: String        // Target URL
 });

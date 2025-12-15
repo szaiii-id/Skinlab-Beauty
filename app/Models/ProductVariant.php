@@ -43,7 +43,7 @@ class ProductVariant extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function orderItens(): HasMany
+    public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
     }

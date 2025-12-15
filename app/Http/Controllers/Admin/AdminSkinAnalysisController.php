@@ -97,8 +97,9 @@ class AdminSkinAnalysisController extends Controller
         ]);
     }
 
-    /**
+/**
      * Send manual product recommendation.
+     * UPDATE: Menggunakan withTrashed() agar produk soft-delete tetap bisa dipilih admin.
      */
     public function sendRecommendation(Request $request, $id)
     {
@@ -107,19 +108,30 @@ class AdminSkinAnalysisController extends Controller
             'message' => 'required|string|min:10|max:500'
         ]);
 
-        $profile = UserSkinProfile::with('user')->findOrFail($id);
-        $product = Product::find($request->product_id);
+        try {
+            // 1. Ambil Profile & User
+            $profile = \App\Models\UserSkinProfile::with('user')->findOrFail($id);
 
-        if ($profile->user) {
+            // Cek apakah User-nya masih ada?
+            if (!$profile->user) {
+                return back()->with('error', "Gagal: User pemilik profil ini sudah dihapus.");
+            }
+
+            // 2. Ambil Produk (Termasuk yang Soft Delete agar tidak error 404 jika admin memilih produk lama)
+            // Hapus check 'is_active' jika kolom itu memang tidak ada di DB
+            $product = \App\Models\Product::withTrashed()->findOrFail($request->product_id);
+
+            // 3. Kirim Notifikasi (Langsung / Realtime)
             $profile->user->notify(new \App\Notifications\SkinCareRecommendation($product, $request->message));
+            
+            return back()->with('success', "Recommendation for '{$product->name}' sent to {$profile->user->name} successfully!");
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Manual Recommend Error: " . $e->getMessage());
+            return back()->with('error', "Terjadi kesalahan sistem: " . $e->getMessage());
         }
-        
-        return back()->with('success', "Recommendation for '{$product->name}' sent to {$profile->user->name}.");
     }
 
-    /**
-     * Bulk Auto-Recommend Product based on Skin Type
-     */
     public function bulkRecommend(Request $request)
     {
         $request->validate([
@@ -132,25 +144,54 @@ class AdminSkinAnalysisController extends Controller
 
         DB::beginTransaction();
         try {
-            $profiles = UserSkinProfile::with('user')->whereIn('id', $request->ids)->get();
+            // Ambil data profil user
+            $profiles = \App\Models\UserSkinProfile::with('user')->whereIn('id', $request->ids)->get();
 
             foreach ($profiles as $profile) {
-                // Cari produk yang sesuai tag kulit user
-                $bestProduct = Product::where('is_active', true)
-                    ->whereHas('variants', function($q) { 
-                        $q->where('stock', '>', 0); 
+                if (!$profile->user) continue;
+
+                // 1. GENERATE KEYWORDS (Logic Brute Force)
+                $keywords = [];
+                // A. Dari Skin Type
+                if ($profile->skin_type) {
+                    $keywords[] = $profile->skin_type;
+                    $keywords[] = explode(' ', $profile->skin_type)[0];
+                }
+                // B. Dari Concerns
+                if (!empty($profile->skin_concerns)) {
+                    foreach ($profile->skin_concerns as $concern) {
+                        $clean = trim(explode('/', $concern)[0]);
+                        $firstWord = trim(explode(' ', $clean)[0]);
+                        if (strlen($firstWord) > 2) $keywords[] = $firstWord;
+                    }
+                }
+                $keywords = array_unique($keywords);
+                
+                // Log Keyword (Opsional, boleh dihapus nanti)
+                \Illuminate\Support\Facades\Log::info("Mencari untuk {$profile->user->name}: " . implode(', ', $keywords));
+
+                // 2. QUERY PENCARIAN (VERSI FIX: TANPA IS_ACTIVE)
+                $bestProduct = \App\Models\Product::query() // Hapus where is_active
+                    ->whereHas('variants', function($q) {
+                        // Pastikan stok ada (paksa baca walau soft delete)
+                        $q->where('stock', '>', 0)->withTrashed();
                     })
-                    ->whereJsonContains('suitability_tags', $profile->skin_type)
+                    ->where(function($q) use ($keywords) {
+                        foreach ($keywords as $word) {
+                            // Cari kata kunci di tags
+                            $q->orWhere('suitability_tags', 'LIKE', "%{$word}%");
+                        }
+                    })
                     ->inRandomOrder()
                     ->first();
 
+                // 3. EKSEKUSI
                 if ($bestProduct) {
+                    $autoMessage = "Hi {$profile->user->name}! Based on your skin profile, we recommend: {$bestProduct->name}.";
                     
-                    if ($profile->user) {
-                        $autoMessage = "Based on your {$profile->skin_type} profile, our experts highly recommend this product for your daily routine.";
-                        $profile->user->notify(new \App\Notifications\SkinCareRecommendation($bestProduct, $autoMessage));
-                    }
-
+                    // Kirim Notifikasi
+                    $profile->user->notify(new \App\Notifications\SkinCareRecommendation($bestProduct, $autoMessage));
+                    
                     $successCount++;
                 } else {
                     $failedCount++;
@@ -159,16 +200,15 @@ class AdminSkinAnalysisController extends Controller
             
             DB::commit();
 
-            $message = "Successfully sent automated recommendations to {$successCount} users.";
-            if ($failedCount > 0) {
-                $message .= " ({$failedCount} skipped due to no matching product found).";
+            if ($successCount > 0) {
+                return back()->with('success', "Recommendations sent to {$successCount} users!");
             }
-
-            return back()->with('success', $message);
+            
+            return back()->with('warning', "No matching products found. (Stock checked)");
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'System error occurred: ' . $e->getMessage());
+            return back()->with('error', 'Error: ' . $e->getMessage());
         }
     }
 }

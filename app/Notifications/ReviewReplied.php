@@ -5,8 +5,9 @@ namespace App\Notifications;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
-use NotificationChannels\Fcm\FcmChannel;
-use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
+use Illuminate\Support\Str;
+// GANTI INI: Pakai Custom Channel Anda
+use App\Channels\FcmChannel;
 
 class ReviewReplied extends Notification implements ShouldQueue
 {
@@ -20,20 +21,30 @@ class ReviewReplied extends Notification implements ShouldQueue
 
     public function via($notifiable)
     {
-        // NO EMAIL. Interaction update.
+        // NO EMAIL. Cukup notifikasi interaksi via Push & Lonceng
         return ['database', FcmChannel::class];
     }
 
+    /**
+     * FIX: Return Array Sederhana untuk Custom Channel
+     */
     public function toFcm($notifiable)
     {
-        return FcmNotification::create()
-            ->setTitle('Admin Replied to You 💬')
-            ->setBody('Admin: "' . \Illuminate\Support\Str::limit($this->review->admin_reply, 50) . '"')
-            ->setData(['type' => 'review_reply', 'product_slug' => $this->review->product->slug, 'click_action' => 'FLUTTER_NOTIFICATION_CLICK']);
+        return [
+            'title' => 'Admin Replied to You 💬',
+            'body'  => 'Admin: "' . Str::limit($this->review->admin_reply, 50) . '"',
+            'link'  => url('/product/' . $this->review->product->slug) // Link ke produk
+        ];
     }
 
     public function toArray($notifiable)
     {
-        return ['title' => 'Review Reply', 'message' => 'Admin replied to your review.', 'product_id' => $this->review->product_id];
+        return [
+            'title'      => 'Review Reply',
+            'message'    => 'Admin replied to your review: "' . Str::limit($this->review->admin_reply, 30) . '"',
+            'product_id' => $this->review->product_id,
+            'link'       => '/product/' . $this->review->product->slug,
+            'type'       => 'interaction'
+        ];
     }
 }
