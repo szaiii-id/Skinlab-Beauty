@@ -84,6 +84,20 @@ const removeFromCart = (variantId) => {
 };
 
 const checkout = () => {
+    const user = usePage().props.auth.user;
+    
+    if (user && user.is_banned) {
+        return Swal.fire({
+            icon: 'error',
+            title: 'Account Restricted',
+            text: 'Your purchasing privileges have been suspended. You cannot proceed to checkout.',
+            confirmButtonColor: '#e11d48', // Warna Rose-600
+            confirmButtonText: 'Contact Support',
+            background: '#fff',
+            customClass: { popup: 'rounded-2xl shadow-xl' }
+        });
+    }
+    
     if (selectedItemsCount.value === 0) return Swal.fire('Select Items', 'Please select at least 1 item.', 'info');
     const items = Array.from(selectedItems.value);
     const qtyMap = {};
