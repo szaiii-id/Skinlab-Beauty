@@ -74,7 +74,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user() ? (
                     // Cek apakah user ini adalah instance dari model User (Pelanggan)
                     $request->user() instanceof \App\Models\User 
-                        ? $request->user()->load('membership') // Jika User, load membership
+                        ? $request->user()->load(['membership', 'skinProfile']) // Jika User, load membership
                         : $request->user() // Jika Admin, biarkan apa adanya (jangan load membership)
                 ) : null,
             ],

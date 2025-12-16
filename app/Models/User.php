@@ -12,6 +12,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Scout\Searchable;
+use App\Models\UserSkinProfile;
 
 class User extends Authenticatable 
 {
@@ -380,5 +381,14 @@ class User extends Authenticatable
     public function routeNotificationForFcm($notification = null)
     {
         return FcmToken::where('user_id', $this->id)->pluck('token')->toArray();
+    }
+
+    /**
+     * Relasi ke Profile Kulit (Skin Analysis)
+     */
+    public function skinProfile(): HasOne
+    {
+        // Pastikan Anda sudah import App\Models\UserSkinProfile di paling atas
+        return $this->hasOne(UserSkinProfile::class);
     }
 }
