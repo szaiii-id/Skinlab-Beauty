@@ -6,7 +6,7 @@ import { useFormatting } from '@/composables/useFormatting';
 import { useWishlist } from '@/composables/useWishlist';
 import AppNavbarLayout from '@/layouts/app/AppNavbarLayout.vue';
 import ProductReviews from '@/components/ProductReviews.vue'; 
-// Icons Lengkap untuk Trust Badges & UI
+// Icons Lengkap
 import { Heart, ShoppingCart, Zap, Star, ChevronDown, ChevronUp, Share2, ShieldCheck, Truck, CheckCircle, PackageCheck, AlertCircle, Copy, Minus, Plus } from 'lucide-vue-next'; 
 
 // Swiper
@@ -16,6 +16,7 @@ import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import 'swiper/css/effect-fade';
+import Swal from 'sweetalert2';
 
 defineOptions({ layout: AppNavbarLayout });
 
@@ -33,7 +34,7 @@ const isDescExpanded = ref(false);
 // Notification
 const showCartPopup = ref(false);
 const showWishlistPopup = ref(false);
-const showSharePopup = ref(false); // Popup Copy Link
+const showSharePopup = ref(false);
 const wishlistMessage = ref('');
 
 // Swiper
@@ -85,13 +86,38 @@ const averageRating = computed(() => {
     return (total / props.product.reviews.length).toFixed(1);
 });
 
-// Logic Diskon
-const hasDiscount = computed(() => currentVariant.value && currentVariant.value.final_price < currentVariant.value.price);
+// --- LOGIC HARGA & DISKON (DIPERBAIKI) ---
+
+// 1. Ambil Harga Asli (Pastikan Number)
+const displayPrice = computed(() => {
+    if (!currentVariant.value) return 0;
+    return Number(currentVariant.value.price);
+});
+
+// 2. Ambil Harga Akhir (Handle Null dengan '??')
+const displayFinalPrice = computed(() => {
+    if (!currentVariant.value) return 0;
+    // Jika final_price NULL, otomatis pakai price
+    return Number(currentVariant.value.final_price ?? currentVariant.value.price);
+});
+
+// 3. Cek Diskon (Lebih Ketat)
+const hasDiscount = computed(() => {
+    const original = displayPrice.value;
+    const final = displayFinalPrice.value;
+    // Diskon valid HANYA jika final < original dan original > 0
+    return final < original && original > 0;
+});
+
+// 4. Hitung Persentase
 const discountPercentage = computed(() => {
     if (!hasDiscount.value) return 0;
-    const { price, final_price } = currentVariant.value;
-    return Math.round(((price - final_price) / price) * 100);
+    const price = displayPrice.value;
+    const final = displayFinalPrice.value;
+    return Math.round(((price - final) / price) * 100);
 });
+
+// 5. Label Diskon
 const discountLabel = computed(() => {
     if (!hasDiscount.value) return '';
     return currentVariant.value.discount_info?.type === 'percent' ? `${discountPercentage.value}% OFF` : 'SAVE'; 
@@ -117,30 +143,20 @@ const goBack = () => {
     else router.visit('/catalog');
 };
 
-// [FIXED] Share Logic: Fallback to Clipboard if Native Share fails
 const handleShare = async () => {
     const shareData = {
         title: props.product.name,
         text: `Check out ${props.product.name} on Skin Lab Beauty!`,
         url: window.location.href,
     };
-
-    // Cek apakah browser support share (biasanya HP support, Desktop Chrome HTTP tidak support)
     if (navigator.share && window.isSecureContext) {
-        try {
-            await navigator.share(shareData);
-        } catch (err) {
-            console.log('Share closed');
-        }
+        try { await navigator.share(shareData); } catch (err) { console.log('Share closed'); }
     } else {
-        // Fallback: Copy Link
         try {
             await navigator.clipboard.writeText(window.location.href);
             showSharePopup.value = true;
             setTimeout(() => { showSharePopup.value = false; }, 2500);
-        } catch (err) {
-            alert('Unable to copy link.');
-        }
+        } catch (err) { alert('Unable to copy link.'); }
     }
 };
 
@@ -159,6 +175,9 @@ const handleBuyNowClick = () => {
     if (!selectedVariantId.value || isOutOfStock.value) return;
     const user = usePage().props.auth.user;
     if (!user) { router.get('/login'); return; }
+    if (user.is_banned) {
+        return Swal.fire({ icon: 'error', title: 'Account Restricted', text: 'Suspended.', confirmButtonColor: '#e11d48' });
+    }
     router.get('/checkout', { items: [selectedVariantId.value], quantity: quantity.value });
 };
 
@@ -166,7 +185,6 @@ const handleWishlistClick = () => {
     if (!currentVariant.value) return;
     const user = usePage().props.auth.user;
     if (!user) { router.get('/login'); return; }
-    
     const action = isWished.value ? removeFromWishlist : addToWishlist;
     action(currentVariant.value.variant_id, {
         onSuccess: () => {
@@ -187,14 +205,12 @@ const handleWishlistClick = () => {
             <div><h4 class="font-bold text-gray-800 text-sm">Added to Cart</h4><p class="text-xs text-gray-500 mt-0.5">Ready for checkout!</p></div>
         </div>
     </Transition>
-
     <Transition enter-active-class="ease-out duration-300 transform" enter-from-class="opacity-0 translate-y-[-1rem]" enter-to-class="opacity-100 translate-y-0" leave-active-class="ease-in duration-200" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-[-1rem]">
         <div v-if="showWishlistPopup" class="fixed top-24 right-4 md:right-8 z-[100] backdrop-blur-md bg-white/95 border border-rose-100 shadow-xl p-4 rounded-2xl flex items-center gap-4 w-auto min-w-[300px] border-l-4 border-l-rose-500">
             <div class="bg-rose-100 p-2.5 rounded-full shadow-sm"><Heart class="w-5 h-5 text-rose-600 fill-current" /></div>
             <div><h4 class="font-bold text-gray-800 text-sm">Wishlist Updated</h4><p class="text-xs text-gray-500 mt-0.5">{{ wishlistMessage }}</p></div>
         </div>
     </Transition>
-
     <Transition enter-active-class="ease-out duration-300 transform" enter-from-class="opacity-0 translate-y-[-1rem]" enter-to-class="opacity-100 translate-y-0" leave-active-class="ease-in duration-200" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-[-1rem]">
         <div v-if="showSharePopup" class="fixed top-24 right-4 md:right-8 z-[100] backdrop-blur-md bg-white/95 border border-blue-100 shadow-xl p-4 rounded-2xl flex items-center gap-4 w-auto min-w-[300px] border-l-4 border-l-blue-500">
             <div class="bg-blue-100 p-2.5 rounded-full shadow-sm"><Copy class="w-5 h-5 text-blue-600" /></div>
@@ -261,17 +277,12 @@ const handleWishlistClick = () => {
                         <div v-if="currentVariant" class="mb-6">
                             <div class="flex items-end gap-3">
                                 <p class="text-5xl font-black text-gray-900 tracking-tighter leading-none">
-                                    {{ formatCurrency(currentVariant.final_price) }}
+                                    {{ formatCurrency(displayFinalPrice) }}
                                 </p>
                                 <div v-if="hasDiscount" class="flex flex-col mb-1">
                                     <span class="bg-rose-100 text-rose-600 text-[10px] font-black px-2 py-0.5 rounded w-fit mb-0.5">{{ discountLabel }}</span>
-                                    <span class="text-lg text-gray-400 line-through decoration-rose-300 decoration-2 font-medium">{{ formatCurrency(currentVariant.price) }}</span>
+                                    <span class="text-lg text-gray-400 line-through decoration-rose-300 decoration-2 font-medium">{{ formatCurrency(displayPrice) }}</span>
                                 </div>
-                            </div>
-                            
-                            <div v-if="isLowStock" class="mt-3 flex items-center gap-2 text-orange-600 animate-pulse">
-                                <AlertCircle class="w-4 h-4" />
-                                <span class="text-xs font-bold uppercase tracking-wide">Hurry! Only {{ currentVariant.stock }} left in stock</span>
                             </div>
                         </div>
 
@@ -312,26 +323,50 @@ const handleWishlistClick = () => {
                             </div>
                         </div>
 
-                        <div class="space-y-6 mt-auto pt-6 border-t border-gray-100">
-                            <div>
-                                <div class="flex justify-between items-center mb-3">
-                                    <label class="text-xs font-extrabold text-gray-900 uppercase tracking-widest">Select Variant</label>
+                        <div class="mt-auto pt-6 border-t border-gray-100 flex flex-col gap-6">
+                            
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+                                <div class="w-full sm:w-auto">
+                                    <label class="block text-xs font-extrabold text-gray-900 uppercase tracking-widest mb-3">Select Variant</label>
+                                    <div class="flex flex-wrap gap-2">
+                                        <button 
+                                            v-for="variant in product.variants" 
+                                            :key="variant.variant_id" 
+                                            @click="selectedVariantId = variant.variant_id" 
+                                            :class="[
+                                                variant.variant_id === selectedVariantId 
+                                                    ? 'ring-2 ring-rose-500 text-rose-600 bg-rose-50 border-transparent shadow-sm font-bold' 
+                                                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900',
+                                                variant.stock === 0 ? 'opacity-50 border-dashed cursor-not-allowed bg-gray-50 text-gray-400 decoration-line-through' : ''
+                                            ]" 
+                                            class="px-4 py-2 border rounded-lg text-xs transition-all duration-200 min-w-[70px]"
+                                        >
+                                            {{ variant.volume }}
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="flex flex-wrap gap-3">
-                                    <button 
-                                        v-for="variant in product.variants" 
-                                        :key="variant.variant_id" 
-                                        @click="selectedVariantId = variant.variant_id" 
-                                        :class="[
-                                            variant.variant_id === selectedVariantId 
-                                                ? 'ring-2 ring-rose-500 text-rose-600 bg-rose-50 border-transparent shadow-sm font-bold' 
-                                                : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400 hover:text-gray-900',
-                                            variant.stock === 0 ? 'opacity-50 border-dashed cursor-not-allowed bg-gray-50 text-gray-400 decoration-line-through' : ''
-                                        ]" 
-                                        class="px-5 py-2.5 border rounded-xl text-xs transition-all duration-200 min-w-[80px]"
-                                    >
-                                        {{ variant.volume }}
-                                    </button>
+                                
+                                <div v-if="currentVariant && !isOutOfStock" class="flex flex-col items-end">
+                                    <span class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">STOCK AVAILABLE</span>
+                                    <div class="flex items-center gap-2">
+                                        <PackageCheck v-if="!isLowStock" class="w-4 h-4 text-emerald-600" />
+                                        <AlertCircle v-if="isLowStock" class="w-4 h-4 text-amber-600 animate-pulse" />
+                                        <span class="text-xl font-black" 
+                                              :class="isLowStock ? 'text-amber-700' : 'text-emerald-700'">
+                                            {{ currentVariant.stock }}
+                                        </span>
+                                    </div>
+                                    <div v-if="isLowStock" class="mt-1">
+                                        <span class="text-xs font-bold text-amber-600 uppercase tracking-wider">Low stock</span>
+                                    </div>
+                                </div>
+                                
+                                <div v-if="isOutOfStock" class="flex flex-col items-end">
+                                    <span class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">STOCK STATUS</span>
+                                    <div class="flex items-center gap-2">
+                                        <AlertCircle class="w-4 h-4 text-gray-500" />
+                                        <span class="text-xl font-black text-gray-600">SOLD OUT</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -351,6 +386,7 @@ const handleWishlistClick = () => {
                                     {{ isOutOfStock ? 'SOLD OUT' : 'BUY NOW' }}
                                 </button>
                             </div>
+                            
                         </div>
                     </div>
                 </div>
@@ -362,9 +398,29 @@ const handleWishlistClick = () => {
 </template>
 
 <style>
-/* Custom Swiper Buttons Modern */
-.swiper-button-next, .swiper-button-prev { color: #111827 !important; background: rgba(255, 255, 255, 0.7); width: 44px; height: 44px; border-radius: 50%; backdrop-filter: blur(8px); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); border: 1px solid rgba(255, 255, 255, 0.5); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-.swiper-button-next:hover, .swiper-button-prev:hover { background: #fff; transform: scale(1.1); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1); color: #e11d48 !important; }
-.swiper-button-next:after, .swiper-button-prev:after { font-size: 18px !important; font-weight: 800; }
-.swiper-pagination-bullet-active { background-color: #e11d48 !important; transform: scale(1.2); }
+.swiper-button-next, .swiper-button-prev { 
+    color: #111827 !important; 
+    background: rgba(255, 255, 255, 0.7); 
+    width: 44px; 
+    height: 44px; 
+    border-radius: 50%; 
+    backdrop-filter: blur(8px); 
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); 
+    border: 1px solid rgba(255, 255, 255, 0.5); 
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+}
+.swiper-button-next:hover, .swiper-button-prev:hover { 
+    background: #fff; 
+    transform: scale(1.1); 
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1); 
+    color: #e11d48 !important; 
+}
+.swiper-button-next:after, .swiper-button-prev:after { 
+    font-size: 18px !important; 
+    font-weight: 800; 
+}
+.swiper-pagination-bullet-active { 
+    background-color: #e11d48 !important; 
+    transform: scale(1.2); 
+}
 </style>

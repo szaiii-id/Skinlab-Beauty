@@ -19,6 +19,7 @@ class ProductResource extends JsonResource
             'description' => $this->description,
             'thumbnail' => $this->thumbnail, 
             'price' => $this->variants->min('price') ?? 0,
+            'suitability_tags' => $this->suitability_tags ?? [], 
             'tags' => $this->suitability_tags ?? [],
             'category' => new CategoryResource($this->whenLoaded('category')),
             'brand' => new BrandResource($this->whenLoaded('brand')),
@@ -41,6 +42,9 @@ class ProductResource extends JsonResource
                     ];
                 });
             }),
+
+            'rating' => $this->reviews->avg('rating') ?? 0,
+            'review_count' => $this->reviews->count(),
         ];
     }
 }

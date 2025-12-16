@@ -9,10 +9,10 @@ defineOptions({ layout: AppNavbarLayout });
 const props = defineProps({
     products: [Object, Array], 
     filterTitle: { type: String, default: null },
-    bannerImage: { type: String, default: null } // Prop tetap ada biar tidak error, tapi tidak dipakai
+    bannerImage: { type: String, default: null } 
 });
 
-// Helper untuk ekstrak data (Logic fix sebelumnya)
+// --- HELPER ---
 const extractProducts = (data) => {
     if (!data) return [];
     if (Array.isArray(data)) return data; 
@@ -20,6 +20,7 @@ const extractProducts = (data) => {
     return [];
 };
 
+// --- STATE ---
 const allProducts = ref(extractProducts(props.products));
 const nextUrl = ref(props.products?.links?.next || null);
 
@@ -29,19 +30,39 @@ const maxAutoLoadAttempts = 3;
 const observerTarget = ref(null);
 let observer = null;
 
-watch(() => props.products, (newProducts) => {
-    allProducts.value = extractProducts(newProducts);
-    nextUrl.value = newProducts?.links?.next || null;
-    isLoading.value = false;
-    autoLoadAttempts.value = 0;
-    if (nextUrl.value) checkIfContentIsShort();
+// --- WATCHER ---
+// Reset hanya jika filter berubah (Page 1)
+watch(() => props.products, (newVal) => {
+    const page = newVal?.current_page || newVal?.meta?.current_page || 1;
+    
+    if (page === 1) {
+        allProducts.value = extractProducts(newVal);
+        nextUrl.value = newVal?.links?.next || null;
+        isLoading.value = false;
+        autoLoadAttempts.value = 0;
+        if (nextUrl.value) checkIfContentIsShort();
+    } else {
+        nextUrl.value = newVal?.links?.next || null;
+    }
 }, { deep: true });
 
-// Logic Infinite Scroll
+// --- FUNGSI PEMBERSIH URL (RAHASIA SUKSES BACK BUTTON) ---
+const cleanUrl = () => {
+    if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        // Hapus parameter 'page' agar URL tetap bersih (misal: /catalog)
+        // Jadi saat di-Refresh atau Back, dia kembali ke Page 1
+        url.searchParams.delete('page'); 
+        window.history.replaceState({}, '', url.toString());
+    }
+};
+
+// --- INFINITE SCROLL ---
 const checkIfContentIsShort = async () => {
     if (!nextUrl.value || isLoading.value || autoLoadAttempts.value >= maxAutoLoadAttempts) return;
     await nextTick();
     setTimeout(() => {
+        if (!observerTarget.value) return; 
         const isPageShort = document.body.offsetHeight < window.innerHeight * 1.5;
         if (isPageShort && nextUrl.value) {
             autoLoadAttempts.value++;
@@ -57,12 +78,23 @@ const loadMoreProducts = () => {
     router.get(nextUrl.value, {}, {
         preserveScroll: true,
         preserveState: true,
+        only: ['products'], 
         onSuccess: (page) => {
             const newProducts = page.props.products;
             const newItems = extractProducts(newProducts);
+            
             if (newItems.length > 0) {
-                allProducts.value.push(...newItems);
+                // Tambahkan data baru
+                const currentIds = new Set(allProducts.value.map(p => p.id));
+                const uniqueItems = newItems.filter(p => !currentIds.has(p.id));
+                allProducts.value.push(...uniqueItems);
+                
                 nextUrl.value = newProducts.links?.next || null;
+                
+                // [FIX UTAMA] Bersihkan URL setelah data dimuat
+                // Ini membuat browser "lupa" kalau kita ada di page 2/3
+                cleanUrl();
+
                 if (nextUrl.value) checkIfContentIsShort();
             } else {
                 nextUrl.value = null;
@@ -74,19 +106,34 @@ const loadMoreProducts = () => {
 };
 
 onMounted(() => {
+    // 1. Logic Anti-Nyangkut (Jika user terlanjur ada di ?page=2 saat refresh/back)
+    // Kita cek URL saat load, jika ada ?page=X (X > 1), kita paksa reload ke awal.
+    // Ini menjamin user selalu dapat full data dari awal.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('page') && url.searchParams.get('page') > 1) {
+        url.searchParams.delete('page');
+        window.location.replace(url.toString()); // Force Reload ke Page 1
+        return; 
+    }
+
     if (observerTarget.value) {
         observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && nextUrl.value && !isLoading.value) loadMoreProducts();
-        }, { rootMargin: '100px' });
+            if (entries[0].isIntersecting && nextUrl.value && !isLoading.value) {
+                loadMoreProducts();
+            }
+        }, { rootMargin: '200px' });
         observer.observe(observerTarget.value);
     }
-    checkIfContentIsShort();
+    
+    if ((allProducts.value?.length || 0) <= 8) {
+        checkIfContentIsShort();
+    }
 });
 
 onUnmounted(() => { if (observer) observer.disconnect(); });
 
 const hasMorePages = computed(() => !!nextUrl.value);
-const isListEmpty = computed(() => allProducts.value.length === 0);
+const isListEmpty = computed(() => (allProducts.value?.length || 0) === 0);
 </script>
 
 <template>

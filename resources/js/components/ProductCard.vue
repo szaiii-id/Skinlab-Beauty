@@ -1,5 +1,5 @@
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { useFormatting } from '@/composables/useFormatting'; 
 import { computed } from 'vue';
 
@@ -11,82 +11,109 @@ const props = defineProps({
 });
 
 const { formatCurrency } = useFormatting();
+const page = usePage();
 
-// --- LOGIC (TIDAK BERUBAH) ---
-const displayPrice = computed(() => {
-    return props.product.variants && props.product.variants.length > 0 
-        ? props.product.variants[0].price 
-        : (props.product.price || 0);
+// --- LOGIC UTAMA: PERFECT MATCH ---
+const user = computed(() => page.props.auth.user); 
+
+const isPerfectMatch = computed(() => {
+    const profile = user.value?.skin_profile || null; 
+    
+    // 1. Cek User dan Profile
+    if (!profile || !profile.skin_type) return false;
+
+    // 2. Ambil Tag Produk
+    const productTags = props.product.suitability_tags;
+    if (!productTags || productTags.length === 0) return false;
+
+    const userSkinType = profile.skin_type; 
+    
+    // 3. Pengecekan
+    const cleanUserType = userSkinType.split(' ')[0]; 
+    return productTags.includes(userSkinType) || productTags.includes(cleanUserType);
 });
 
-const displayImage = computed(() => {
-    if (props.product.variants && props.product.variants.length > 0 && props.product.variants[0].image_url) {
-        return props.product.variants[0].image_url;
+// --- LOGIC RATING ---
+const reviewCount = computed(() => props.product.review_count || props.product.reviews?.length || 0);
+
+const ratingValue = computed(() => {
+    if (props.product.rating !== undefined && props.product.rating !== null) {
+        return Number(props.product.rating);
     }
-    return props.product.thumbnail || null; 
-});
-
-const displayCategory = computed(() => props.product.category?.name || 'Beauty');
-const displayBrand = computed(() => props.product.brand?.name || '');
-
-const discountBadge = computed(() => {
-    if (props.product.variants && props.product.variants.length > 0) {
-        return props.product.variants[0].discount_info; 
-    }
-    return null;
-});
-
-const displayFinalPrice = computed(() => {
-    if (props.product.variants && props.product.variants.length > 0) {
-        return props.product.variants[0].final_price;
-    }
-    return props.product.price || 0;
-});
-
-const hasDiscount = computed(() => {
-    return displayFinalPrice.value < displayPrice.value;
-});
-
-const totalStock = computed(() => {
-    if (props.product.variants && props.product.variants.length > 0) {
-        return props.product.variants.reduce((sum, v) => sum + v.stock, 0);
+    if (props.product.reviews?.length > 0) {
+        const total = props.product.reviews.reduce((acc, review) => acc + Number(review.rating), 0);
+        return (total / props.product.reviews.length).toFixed(1);
     }
     return 0;
 });
 
-const displayTags = computed(() => {
-    return props.product.tags ? props.product.tags.slice(0, 3) : [];
+// --- LOGIC DISPLAY (SUDAH DIPERBAIKI) ---
+
+// 1. Harga Asli (Selalu number)
+const displayPrice = computed(() => {
+    const price = props.product.variants?.length > 0 
+        ? props.product.variants[0].price 
+        : (props.product.price || 0);
+    return Number(price);
 });
 
-// --- LOGIC RATING ---
-// Pastikan di Backend ProductResource sudah dikirim 'rating' dan 'review_count'
-// Jika belum ada, default ke 0 agar tidak error
-const ratingValue = computed(() => props.product.rating || 0);
-const reviewCount = computed(() => props.product.review_count || 0);
+// 2. Harga Akhir (Handle Null/Undefined dengan aman)
+const displayFinalPrice = computed(() => {
+    if (props.product.variants?.length > 0) {
+        const v = props.product.variants[0];
+        // Jika final_price NULL, gunakan harga asli (price)
+        // Operator '??' memastikan null/undefined diganti, tapi 0 tetap 0
+        return Number(v.final_price ?? v.price);
+    }
+    // Jika tidak ada varian, harga akhir = harga asli
+    return Number(props.product.price || 0);
+});
+
+// 3. Cek Diskon (Lebih Ketat)
+const hasDiscount = computed(() => {
+    const original = displayPrice.value;
+    const final = displayFinalPrice.value;
+    
+    // Diskon valid jika Final < Original DAN Original > 0
+    return final < original && original > 0;
+});
+
+// Logic tampilan lainnya
+const displayImage = computed(() => (props.product.variants?.length > 0 && props.product.variants[0].image_url) ? props.product.variants[0].image_url : (props.product.thumbnail || null));
+const displayBrand = computed(() => props.product.brand?.name || '');
+const discountBadge = computed(() => props.product.variants?.length > 0 ? props.product.variants[0].discount_info : null);
+const totalStock = computed(() => props.product.variants?.length > 0 ? props.product.variants.reduce((sum, v) => sum + v.stock, 0) : 0);
+const displayTags = computed(() => props.product.tags ? props.product.tags.slice(0, 3) : []);
 </script>
 
 <template>
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full overflow-hidden group">
         
-        <Link :href="`/products/${product.slug}/${product.id}`" class="relative w-full aspect-square bg-[#F5F5F7] overflow-hidden block">
+        <Link :href="`/products/${product.slug}/${product.id}`" class="relative w-full aspect-square bg-[#F5F5F7] overflow-hidden block p-4">
             
             <img 
                 v-if="displayImage" 
                 :src="displayImage" 
                 :alt="product.name"
-                class="w-full h-full object-cover object-center transition-transform duration-700 ease-in-out group-hover:scale-110"
+                class="w-full h-full object-cover object-center rounded-xl transition-transform duration-700 ease-in-out group-hover:scale-105 mix-blend-multiply"
                 :class="{ 'grayscale opacity-70': totalStock === 0 }"
             />
             <div v-else class="w-full h-full flex flex-col items-center justify-center text-gray-300">
                 <span class="text-xs font-medium">No Image</span>
             </div>
 
-            <div class="absolute top-3 left-3 flex flex-col items-start gap-1.5 z-10">
-                <div v-if="discountBadge" 
-                     class="bg-rose-600 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm tracking-wide uppercase">
-                    {{ discountBadge.type === 'percent' ? `${discountBadge.value}% OFF` : 'SALE' }}
+            <div class="absolute top-3 left-3 flex flex-col items-start gap-2 z-10">
+                <div v-if="isPerfectMatch" 
+                     class="bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-md tracking-wide uppercase flex items-center gap-1.5 animate-in fade-in zoom-in duration-300 border border-emerald-400/50 backdrop-blur-sm bg-opacity-95">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    Perfect Match
                 </div>
                 <slot name="badge"></slot>
+            </div>
+
+            <div v-if="discountBadge && hasDiscount" 
+                 class="absolute top-3 right-3 z-10 bg-rose-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm tracking-wide uppercase border border-rose-400/50 backdrop-blur-sm bg-opacity-95">
+                {{ discountBadge.type === 'percent' ? `${discountBadge.value}% OFF` : 'SALE' }}
             </div>
 
             <div v-if="totalStock === 0" class="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-20">
@@ -116,19 +143,19 @@ const reviewCount = computed(() => props.product.review_count || 0);
             </Link>
 
             <div class="flex items-center gap-1 mb-3">
-                <svg class="w-3 h-3" :class="ratingValue > 0 ? 'text-yellow-400 fill-current' : 'text-gray-300 fill-current'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <svg class="w-3.5 h-3.5" :class="ratingValue > 0 ? 'text-amber-400 fill-current' : 'text-gray-300 fill-current'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
                 
-                <span class="text-[10px] font-bold text-gray-700 pt-0.5">
-                    {{ ratingValue > 0 ? ratingValue : 'No reviews' }}
+                <span class="text-[11px] font-bold text-gray-800 pt-0.5">
+                    {{ ratingValue > 0 ? ratingValue : 'New' }}
                 </span>
-                <span v-if="reviewCount > 0" class="text-[10px] text-gray-400 pt-0.5">
-                    ({{ reviewCount }})
+                <span class="text-[10px] text-gray-400 pt-0.5 ml-0.5">
+                    ({{ reviewCount }} reviews)
                 </span>
             </div>
 
-            <div class="flex flex-wrap gap-1 mb-4 min-h-[22px]">
+            <div class="flex flex-wrap gap-1.5 mb-4 min-h-[22px]">
                 <span v-for="tag in displayTags" :key="tag" 
-                      class="px-2 py-0.5 bg-gray-100 text-gray-500 text-[9px] rounded-full font-semibold uppercase tracking-wide border border-gray-100">
+                      class="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-500 text-[9px] rounded font-bold uppercase tracking-wider">
                     {{ tag }}
                 </span>
             </div>
@@ -151,7 +178,7 @@ const reviewCount = computed(() => props.product.review_count || 0);
                 </div>
 
                 <Link :href="`/products/${product.slug}/${product.id}`" 
-                      class="px-4 py-1.5 bg-gray-900 text-white rounded-full hover:bg-rose-600 transition-all shadow-sm hover:shadow-md text-[11px] font-bold tracking-wide">
+                      class="px-5 py-1.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-full hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all shadow-sm hover:shadow-md text-[11px] font-bold tracking-wide">
                     View
                 </Link>
             </div>

@@ -73,21 +73,24 @@ class ProductVariant extends Model
     // --- 3. LOGIC HARGA CORET ---
     public function getFinalPriceAttribute()
     {
-        // Cari banner yang LIVE
-        $activePromo = $this->promoBanners->first(function ($banner) {
-            return $banner->is_live; 
-        });
+        // Cek apakah ada promo aktif untuk varian ini
+        // Sesuaikan 'promoBanners' dengan nama relasi Anda ke tabel promo
+        $activePromo = $this->promoBanners()
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
+            ->first();
 
         if ($activePromo) {
-            $type = $activePromo->pivot->discount_type;
-            $val  = $activePromo->pivot->discount_value;
-            
-            $cutAmount = ($type === 'percent') ? ($this->price * $val / 100) : $val;
-            
-            return max(0, $this->price - $cutAmount);
+            if ($activePromo->pivot->discount_type === 'percent') {
+                return $this->price - ($this->price * ($activePromo->pivot->discount_value / 100));
+            } else {
+                return $this->price - $activePromo->pivot->discount_value;
+            }
         }
 
-        return $this->price;
+        // Jika tidak ada promo, kembalikan null atau harga asli
+        // Karena di controller Anda pakai '?? $variant->price', return null disini aman.
+        return null; 
     }
     
     public function getDiscountInfoAttribute()
