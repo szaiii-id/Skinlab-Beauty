@@ -375,6 +375,7 @@ class ShippingService
         }
     }
     
+
     /**
      * Helper: Prepare Payload for Booking (Private)
      */
@@ -388,6 +389,7 @@ class ShippingService
         $goodsValue = 0; 
         $totalWeight = 0;
 
+        // 1. Prepare Items
         foreach ($order->items as $item) {
             $weight = $item->productVariant->weight ?? 100;
             $totalWeight += ($weight * $item->quantity);
@@ -406,29 +408,55 @@ class ShippingService
             ];
         }
         
+        // 2. Calculate Costs
         $shippingCost = (int) $order->shipping_cost;
         $codValue = $goodsValue + $shippingCost;
         
-        // Calculate Service Fee (2.8% or min 500)
+        // Service Fee calculation (Standard Komerce logic)
         $serviceFee = floor($codValue * 0.028);
         if ($serviceFee < 500) $serviceFee = 500;
 
+        // 3. LOAD RELASI ALAMAT (Penting agar tidak error saat ambil nama kota/provinsi)
+        if (!$order->relationLoaded('shippingAddress')) {
+            $order->load(['shippingAddress.province', 'shippingAddress.city', 'shippingAddress.district']);
+        }
+        
+        $addr = $order->shippingAddress;
+
+        if (!$addr) {
+            throw new Exception("Shipping address data missing for Order #{$order->order_number}");
+        }
+
+        // 4. FORMAT ALAMAT LENGKAP (Tanpa kolom baru)
+        // Menggabungkan: Jalan, Kecamatan, Kota, Provinsi, Kode Pos
+        $formattedAddress = sprintf(
+            "%s, %s, %s, %s %s",
+            $addr->full_address,          // Dari kolom UserAddress
+            $addr->district->name ?? '',  // Dari Relasi Laravolt
+            $addr->city->name ?? '',      // Dari Relasi Laravolt
+            $addr->province->name ?? '',  // Dari Relasi Laravolt
+            $addr->postal_code            // Dari kolom UserAddress
+        );
+
         return [
-            'order_date'       => now()->format('Y-m-d'),
+            'order_date'       => $order->created_at->format('Y-m-d'),
             'brand_name'       => 'Skin Lab Beauty',
             'shipper_name'     => 'Admin Skin Lab',
             'shipper_phone'    => '08123456789', 
             'shipper_destination_id' => $this->originId,
             'shipper_address'  => 'Jl. Gudang Skin Lab No 1',
             'shipper_email'    => 'admin@skinlab.com',
-            'receiver_name'    => $order->shippingAddress->receiver_name,
-            'receiver_phone'   => $order->shippingAddress->phone_number,
-            'receiver_destination_id' => (int) $order->shippingAddress->komerce_destination_id,
-            'receiver_address' => $order->shippingAddress->full_address,
-            'receiver_email'   => 'customer@email.com', 
+            
+            // DATA PENERIMA SESUAI MODEL USERADDRESS
+            'receiver_name'    => $addr->receiver_name, // Sesuai model UserAddress
+            'receiver_phone'   => $addr->phone_number,  // Sesuai model UserAddress
+            'receiver_destination_id' => (int) ($addr->komerce_destination_id ?? 0),
+            'receiver_address' => $formattedAddress,    // Hasil gabungan di atas
+            'receiver_email'   => $order->user->email ?? 'customer@email.com', 
+            
             'shipping'         => $shippingCode, 
             'shipping_type'    => $shippingType, 
-            'payment_method'   => 'COD', 
+            'payment_method'   => 'COD', // Sesuaikan logika jika ada Non-COD
             'shipping_cost'    => $shippingCost,
             'service_fee'      => (int) $serviceFee,
             'grand_total'      => (int) $codValue,
