@@ -32,55 +32,75 @@ class OrderService
         $this->membershipService = $membershipService;
     }
 
-    /**
-     * Execute Order Creation Transaction
-     */
     public function createOrder(User $user, array $data): Order
     {
+        if ($user->is_banned) {
+            throw new Exception("Your account is currently restricted.");
+        }
+
         return DB::transaction(function () use ($user, $data) {
             
-            // 1. Calculate Temporary Subtotal (For Voucher Validation)
+            // 1. Calculate Temporary Subtotal
             $tempSubtotal = 0;
             foreach ($data['items'] as $item) {
-                // Lightweight query to check price
                 $variant = ProductVariant::find($item['variant_id']);
                 if ($variant) {
-                    $tempSubtotal += $variant->price * $item['quantity'];
+                    $price = $variant->final_price ?? $variant->price;
+                    $tempSubtotal += $price * $item['quantity'];
                 }
             }
 
-            // 2. Voucher Logic & Validation
+            // 2. Voucher Logic & Validation (DIPERBAIKI)
             $discountAmount = 0;
-            $usedVoucher = null;
+            $usedVoucher = null; // Default null
 
             if (!empty($data['voucher_code'])) {
-                $usedVoucher = UserReward::where('code', $data['voucher_code'])
+                // Cari voucher
+                $voucherCandidate = UserReward::where('code', $data['voucher_code'])
                     ->where('user_id', $user->id)
                     ->where('is_used', false)
                     ->with('reward')
-                    ->lockForUpdate() // Prevent double usage race condition
+                    ->lockForUpdate()
                     ->first();
 
-                if ($usedVoucher && $tempSubtotal >= $usedVoucher->reward->min_spend) {
-                    if ($usedVoucher->reward->type === 'discount_fixed') {
-                        $discountAmount = $usedVoucher->reward->value;
-                    } elseif ($usedVoucher->reward->type === 'discount_percent') {
-                        $discountAmount = ($tempSubtotal * $usedVoucher->reward->value) / 100;
-                    }
+                // [FIX 1] Validasi Tegas: Jika voucher ada tapi tidak valid, lempar ERROR.
+                // Jangan biarkan user checkout kalau dia berharap dapat diskon tapi gagal.
+                if (!$voucherCandidate) {
+                    throw new Exception("Voucher tidak valid atau sudah digunakan.");
                 }
+
+                // Cek Minimal Belanja
+                if ($tempSubtotal < $voucherCandidate->reward->min_spend) {
+                     throw new Exception("Total belanja kurang dari syarat minimum voucher (Min: " . number_format($voucherCandidate->reward->min_spend) . ")");
+                }
+
+                // Jika lolos validasi, baru set variable $usedVoucher
+                $usedVoucher = $voucherCandidate;
+
+                // Hitung Nominal
+                if ($usedVoucher->reward->type === 'discount_fixed') {
+                    $discountAmount = $usedVoucher->reward->value;
+                } elseif ($usedVoucher->reward->type === 'discount_percent') {
+                    $discountAmount = ($tempSubtotal * $usedVoucher->reward->value) / 100;
+                }
+
+                // [FIX 2] Capping Diskon (Best Practice)
+                // Diskon Barang TIDAK BOLEH memotong Ongkir. 
+                // Maksimal diskon = Total Harga Barang.
+                $discountAmount = min($discountAmount, $tempSubtotal);
             }
 
-            // 3. Create Order Header (Status Pending)
+            // 3. Create Order Header
             $order = Order::create([
                 'user_id' => $user->id,
                 'shipping_address_id' => $data['shipping_address_id'],
                 'order_number' => 'ORD-' . time() . rand(1000, 9999),
-                'subtotal' => 0, // Will be updated
+                'subtotal' => 0, 
                 'shipping_cost' => $data['shipping_cost'],
                 'shipping_courier' => $data['shipping_courier'],
                 'discount_amount' => $discountAmount,
-                'voucher_code' => $data['voucher_code'],
-                'total_amount' => 0, // Will be updated
+                'voucher_code' => ($usedVoucher ? $data['voucher_code'] : null), // Hanya simpan kode jika valid
+                'total_amount' => 0, 
                 'payment_method' => $data['payment_method'],
                 'payment_status' => 'unpaid',
                 'order_status' => 'pending',
@@ -91,19 +111,16 @@ class OrderService
             $realSubtotal = 0;
 
             foreach ($data['items'] as $item) {
-                // CRITICAL: Lock row to prevent race condition on stock
                 $variant = ProductVariant::where('id', $item['variant_id'])->lockForUpdate()->first();
 
-                if (!$variant) continue;
-
-                if ($variant->stock < $item['quantity']) {
-                    throw new Exception("Out of stock for product: {$variant->product->name}");
+                if (!$variant || $variant->stock < $item['quantity']) {
+                    throw new Exception("Out of stock for product: " . ($variant->product->name ?? 'Unknown'));
                 }
 
-                // Decrement Stock
                 $variant->decrement('stock', $item['quantity']);
 
-                $lineTotal = $variant->price * $item['quantity'];
+                $fixPrice = $variant->final_price ?? $variant->price;
+                $lineTotal = $fixPrice * $item['quantity'];
                 $realSubtotal += $lineTotal;
 
                 OrderItem::create([
@@ -112,13 +129,17 @@ class OrderService
                     'variant_name' => $variant->volume,
                     'product_name' => $variant->product->name,
                     'quantity' => $item['quantity'],
-                    'price' => $variant->price,
+                    'price' => $fixPrice,
                     'subtotal' => $lineTotal,
                 ]);
             }
 
             // 5. Final Calculation
-            $grandTotal = ($realSubtotal + $data['shipping_cost']) - $discountAmount;
+            // Karena $discountAmount sudah di-cap di atas (tidak lebih dari subtotal),
+            // Rumus ini aman & ongkir tidak ikut terpotong.
+            $grandTotal = ($realSubtotal - $discountAmount) + $data['shipping_cost'];
+            
+            // Safety net terakhir (tidak boleh negatif)
             if ($grandTotal < 0) $grandTotal = 0;
 
             $order->update([
@@ -126,12 +147,12 @@ class OrderService
                 'total_amount' => $grandTotal
             ]);
 
-            // Mark voucher as used if applicable
+            // [FIX 3] Hanya update voucher jika BENAR-BENAR TERPAKAI & VALID
             if ($usedVoucher) {
                 $usedVoucher->update(['is_used' => true]);
             }
 
-            // 6. Generate Snap Token if Payment Method is Online
+            // 6. Generate Snap Token
             if ($data['payment_method'] === 'online_payment' && $grandTotal > 0) {
                 $snapToken = $this->paymentService->createSnapToken($order, $user);
                 $order->update(['snap_token' => $snapToken]);

@@ -101,6 +101,12 @@ class Order extends Model
         return $this->hasOne(OrderReturn::class);
     }
 
+    // Relasi ke Review
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'order_id');
+    }
+
     // ============ SCOPES (Fallback jika Elastic mati/belum setup) ============
     
     public function scopeFilter($query, array $filters)

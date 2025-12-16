@@ -24,23 +24,76 @@ class OrderController extends Controller
     public function index(Request $request)
     {
         $status = $request->input('status', 'all');
+        $userId = Auth::id();
 
-        $orders = Order::where('user_id', Auth::id())
-            // Eager load items, variants, and return requests to show status in UI
-            ->with(['items', 'items.productVariant', 'returnRequest']) 
+        // 1. QUERY ORDER UTAMA (Tampilan List Data)
+        // Logika ini TETAP menampilkan semua history (biar user bisa lihat sejarahnya)
+        $orders = Order::where('user_id', $userId)
+            ->with(['items.productVariant.product', 'returnRequest']) 
             ->when($status !== 'all', function ($q) use ($status) {
-                // If filtering by 'processing', also include 'pickup_scheduled'
+                // Grouping Processing
                 if ($status === 'processing') {
                     return $q->whereIn('order_status', ['processing', 'pickup_scheduled']);
+                }
+                // Grouping Return (Tampilkan semua history retur di list)
+                if ($status === 'return_requested') {
+                    return $q->whereIn('order_status', ['return_requested', 'return_approved', 'returned', 'return_rejected']);
+                }
+                // Grouping Cancelled (Tampilkan semua history cancel di list)
+                if ($status === 'cancelled') {
+                    return $q->whereIn('order_status', ['cancelled', 'canceled', 'cancellation_requested']);
                 }
                 return $q->where('order_status', $status);
             })
             ->latest()
             ->paginate(10);
 
+        // 2. TRANSFORM DATA (Cek status review per item untuk tombol)
+        $orders->getCollection()->transform(function ($order) use ($userId) {
+            foreach ($order->items as $item) {
+                $productId = $item->productVariant->product_id ?? null;
+                if ($productId) {
+                    $item->is_reviewed = \App\Models\Review::where('order_id', $order->id)
+                        ->where('product_id', $productId)
+                        ->where('user_id', $userId)
+                        ->exists();
+                } else {
+                    $item->is_reviewed = false;
+                }
+            }
+            return $order;
+        });
+
+        // 3. LOGIKA BADGE/COUNTER (Sesuai Permintaan Anda)
+        $counts = [
+            // A. Pending & Shipped (Tetap Muncul Selama Ada Isinya)
+            'pending'    => Order::where('user_id', $userId)->where('order_status', 'pending')->count(),
+            'processing' => Order::where('user_id', $userId)->whereIn('order_status', ['processing', 'pickup_scheduled'])->count(),
+            'shipped'    => Order::where('user_id', $userId)->where('order_status', 'shipped')->count(),
+            
+            // B. Completed (HANYA MUNCUL JIKA BELUM DI-REVIEW)
+            'completed'  => Order::where('user_id', $userId)
+                            ->where('order_status', 'completed')
+                            ->whereDoesntHave('reviews') // <--- Logika Cerdas: Cek jika TIDAK punya review
+                            ->count(),
+            
+            // C. Cancelled (HANYA MUNCUL JIKA SEDANG REQUEST)
+            // Jika status sudah 'cancelled' (final), angka hilang.
+            'cancelled'  => Order::where('user_id', $userId)
+                            ->where('order_status', 'cancellation_requested') 
+                            ->count(),
+                            
+            // D. Return (HANYA MUNCUL JIKA SEDANG REQUEST)
+            // Jika status sudah 'returned' atau 'rejected', angka hilang.
+            'return_requested' => Order::where('user_id', $userId)
+                            ->where('order_status', 'return_requested')
+                            ->count(),
+        ];
+
         return Inertia::render('Orders/Index', [
             'orders' => $orders,
-            'currentStatus' => $status
+            'currentStatus' => $status,
+            'counts' => $counts
         ]);
     }
 

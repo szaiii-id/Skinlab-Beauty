@@ -43,23 +43,39 @@ class CheckoutController extends Controller
 
         // 2. Fetch Product Data
         foreach ($itemIds as $variantId) {
-            $variant = ProductVariant::with('product')->find($variantId);
+            // Eager Load 'product.brand' agar nama brand muncul
+            // Pastikan model ProductVariant Anda memiliki Accessor 'final_price'
+            $variant = ProductVariant::with(['product.brand'])->find($variantId);
             
-            // Skip if product not found or out of stock
             if ($variant && $variant->stock > 0) {
-                // Determine quantity (handle both single int or array of qtys)
                 $itemQuantity = is_array($quantities) ? ($quantities[$variantId] ?? 1) : $quantities;
                 
+                // Ambil harga Final (Diskon) dan Harga Asli
+                // Asumsi: Model ProductVariant sudah punya getFinalPriceAttribute()
+                $finalPrice = $variant->final_price ?? $variant->price; 
+                $originalPrice = $variant->price;
+
                 $checkoutItems[] = [
                     'variant_id' => $variant->id,
-                    'name' => $variant->product->name . ' (' . $variant->volume . ')',
-                    'price' => $variant->price,
+                    'product_id' => $variant->product_id,
+                    'name' => $variant->product->name,
+                    'brand' => $variant->product->brand->name ?? '', // Kirim Brand
+                    'volume' => $variant->volume,                   // Kirim Volume
+                    'image_url' => $variant->product->image_url ?? $variant->image_url,
+                    
                     'quantity' => $itemQuantity,
-                    'image_url' => $variant->product->image_url,
+                    
+                    // Harga untuk perhitungan
+                    'price' => (float) $finalPrice, 
+                    'original_price' => (float) $originalPrice,
+                    'has_discount' => $finalPrice < $originalPrice,
+                    'total_price' => $finalPrice * $itemQuantity, // Total per item
+                    
                     'stock' => $variant->stock,
-                    'volume' => $variant->volume,
                 ];
-                $subtotal += $variant->price * $itemQuantity;
+
+                // Hitung Subtotal berdasarkan HARGA FINAL (Diskon)
+                $subtotal += $finalPrice * $itemQuantity;
             }
         }
 
@@ -99,36 +115,37 @@ class CheckoutController extends Controller
      * Process the order.
      * Validates input and delegates execution to OrderService.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request)
     {
-        // 1. Validate Input
+        // 1. Standard Validation (Clean & Tidy)
+        // Laravel automatically handles empty strings as null, so this is safe.
         $validatedData = $request->validate([
             'shipping_address_id' => 'required|exists:user_addresses,id',
-            'items' => 'required|array',
-            'items.*.variant_id' => 'required|exists:product_variants,id',
-            'items.*.quantity' => 'required|integer|min:1',
-            'payment_method' => 'required|string',
-            'shipping_cost' => 'required|numeric|min:0', 
-            'shipping_courier' => 'required|string',
-            'voucher_code' => 'nullable|string|exists:user_rewards,code',
-            'notes' => 'nullable|string|max:500'
+            'items'               => 'required|array',
+            'items.*.variant_id'  => 'required|exists:product_variants,id',
+            'items.*.quantity'    => 'required|integer|min:1',
+            'payment_method'      => 'required|string',
+            'shipping_cost'       => 'required|numeric|min:0',
+            'shipping_courier'    => 'required|string',
+            'notes'               => 'nullable|string|max:500',
+            // Restore standard voucher validation
+            'voucher_code'        => 'nullable|string|exists:user_rewards,code', 
         ]);
 
         try {
-            // 2. Execute Order via Service (Transaction, Stock Lock, Payment)
+            // 2. Execute Order
             $order = $this->orderService->createOrder(Auth::user(), $validatedData);
 
-            // 3. Handle Online Payment (Midtrans Snap)
+            // 3. Check Midtrans Token (For Frontend Popup)
             if ($order->snap_token) {
-                // Return back with snap_token to trigger popup on frontend
                 return back()->with('snap_token', $order->snap_token);
             }
 
-            // 4. Handle Offline/Manual Payment (Success Redirect)
+            // 4. Success (COD / Manual)
             return to_route('checkout.success')->with('toast_success', 'Order placed successfully!');
 
         } catch (\Exception $e) {
-            // 5. Handle Errors (Stockout, Voucher Invalid, etc.)
+            // Standard Error Handling (Toast Message)
             return back()->with('toast_error', 'Failed to place order: ' . $e->getMessage());
         }
     }

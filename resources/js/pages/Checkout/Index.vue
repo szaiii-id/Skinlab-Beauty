@@ -2,11 +2,12 @@
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import { ArrowLeft } from 'lucide-vue-next'; 
 import AppNavbarLayout from '@/layouts/app/AppNavbarLayout.vue';
 import AddressManager from '@/components/AddressManager.vue';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector.vue';
-import OrderSummary from '@/components/OrderSummary.vue'; // Component Baru
-import ShippingSelection from '@/components/ShippingSelection.vue'; // Component Baru
+import OrderSummary from '@/components/OrderSummary.vue'; 
+import ShippingSelection from '@/components/ShippingSelection.vue'; 
 import Swal from 'sweetalert2';
 
 defineOptions({ layout: AppNavbarLayout });
@@ -42,6 +43,16 @@ const form = useForm({
 
 // --- METHODS ---
 
+// [FIX] FUNGSI BACK DIBUAT DI SINI (AGAR TIDAK ERROR 'UNDEFINED')
+const goBack = () => {
+    // Cek apakah ada history, jika ada mundur, jika tidak ke home
+    if (window.history.length > 1) {
+        window.history.back();
+    } else {
+        router.visit('/'); // Fallback jika user membuka tab baru langsung di checkout
+    }
+};
+
 // 1. Voucher Actions
 const applyVoucher = (voucher) => {
     selectedVoucher.value = voucher;
@@ -68,14 +79,12 @@ const fetchShippingRates = async (addressId) => {
             items: props.items.map(item => ({ variant_id: item.variant_id, quantity: item.quantity }))
         });
         
-        // Filter expensive rates (> 1jt usually invalid/error)
         const cleanRates = response.data.rates
             .filter(r => r.price < 1000000)
             .sort((a, b) => a.price - b.price);
             
         rawShippingRates.value = cleanRates;
         
-        // Auto select cheapest
         if (cleanRates.length > 0) {
             selectService(cleanRates[0]);
         }
@@ -148,6 +157,18 @@ onMounted(() => {
     
     <div class="min-h-screen bg-rose-50 py-8 text-gray-900">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            
+            <div class="mb-6">
+                <button 
+                    @click="goBack" 
+                    class="group inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-rose-600 transition-all duration-200"
+                >
+                    <div class="p-1 rounded-full group-hover:bg-rose-100 transition-colors">
+                        <ArrowLeft class="w-4 h-4" />
+                    </div>
+                    <span>Back</span>
+                </button>
+            </div>
             <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">Checkout</h1>
                 <p class="text-gray-600">Complete your purchase securely.</p>
