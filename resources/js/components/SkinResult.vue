@@ -48,11 +48,11 @@ const emit = defineEmits(['retake']);
             </h3>
             
             <div v-if="products && products.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <ProductCard v-for="product in products" :key="product.id" :product="product">
-                    <template #badge>
-                        <div class="absolute top-3 right-3 bg-rose-500/90 backdrop-blur text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider shadow-sm z-10">Best Match</div>
-                    </template>
-                </ProductCard>
+                <ProductCard 
+                    v-for="product in products" 
+                    :key="product.id" 
+                    :product="product" 
+                />
             </div>
 
             <div v-else class="bg-white rounded-2xl shadow border border-gray-100 p-12 text-center">
