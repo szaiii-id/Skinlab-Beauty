@@ -63,22 +63,26 @@ onMounted(() => {
 <template>
     <Head title="Dashboard" />
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
         
-        <DashboardHero 
-            :user="auth.user" 
-            :points="stats.points" 
-        />
+        <div class="space-y-6 md:space-y-10">
+            
+            <DashboardHero 
+                :user="auth.user" 
+                :points="stats.points" 
+            />
 
-        <DashboardStats 
-            :stats="stats" 
-        />
+            <DashboardStats 
+                :stats="stats" 
+            />
 
-        <RecentOrders 
-            :orders="recentOrders" 
-            @track="handleTrackPackage"
-            @pay="handlePayNow"
-        />
+            <RecentOrders 
+                :orders="recentOrders" 
+                @track="handleTrackPackage"
+                @pay="handlePayNow"
+            />
+            
+        </div>
 
         <TrackingModal 
             :show="isTrackingModalOpen" 
