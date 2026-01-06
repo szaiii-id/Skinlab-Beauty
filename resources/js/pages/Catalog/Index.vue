@@ -31,7 +31,6 @@ const observerTarget = ref(null);
 let observer = null;
 
 // --- WATCHER ---
-// Reset hanya jika filter berubah (Page 1)
 watch(() => props.products, (newVal) => {
     const page = newVal?.current_page || newVal?.meta?.current_page || 1;
     
@@ -46,12 +45,10 @@ watch(() => props.products, (newVal) => {
     }
 }, { deep: true });
 
-// --- FUNGSI PEMBERSIH URL (RAHASIA SUKSES BACK BUTTON) ---
+// --- FUNGSI PEMBERSIH URL ---
 const cleanUrl = () => {
     if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
-        // Hapus parameter 'page' agar URL tetap bersih (misal: /catalog)
-        // Jadi saat di-Refresh atau Back, dia kembali ke Page 1
         url.searchParams.delete('page'); 
         window.history.replaceState({}, '', url.toString());
     }
@@ -84,15 +81,12 @@ const loadMoreProducts = () => {
             const newItems = extractProducts(newProducts);
             
             if (newItems.length > 0) {
-                // Tambahkan data baru
                 const currentIds = new Set(allProducts.value.map(p => p.id));
                 const uniqueItems = newItems.filter(p => !currentIds.has(p.id));
                 allProducts.value.push(...uniqueItems);
                 
                 nextUrl.value = newProducts.links?.next || null;
                 
-                // [FIX UTAMA] Bersihkan URL setelah data dimuat
-                // Ini membuat browser "lupa" kalau kita ada di page 2/3
                 cleanUrl();
 
                 if (nextUrl.value) checkIfContentIsShort();
@@ -106,13 +100,10 @@ const loadMoreProducts = () => {
 };
 
 onMounted(() => {
-    // 1. Logic Anti-Nyangkut (Jika user terlanjur ada di ?page=2 saat refresh/back)
-    // Kita cek URL saat load, jika ada ?page=X (X > 1), kita paksa reload ke awal.
-    // Ini menjamin user selalu dapat full data dari awal.
     const url = new URL(window.location.href);
     if (url.searchParams.has('page') && url.searchParams.get('page') > 1) {
         url.searchParams.delete('page');
-        window.location.replace(url.toString()); // Force Reload ke Page 1
+        window.location.replace(url.toString());
         return; 
     }
 
@@ -140,15 +131,15 @@ const isListEmpty = computed(() => (allProducts.value?.length || 0) === 0);
     <Head :title="filterTitle || 'Product Catalog'" /> 
 
     <div class="bg-rose-50 min-h-screen">
-        <div class="max-w-7xl mx-auto py-12 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto py-8 md:py-12 px-4 sm:px-6 lg:px-8">
             
-            <div class="text-center mb-8">
-                <h1 class="text-3xl md:text-4xl font-light text-gray-900 tracking-tight">
+            <div class="text-center mb-6 md:mb-8">
+                <h1 class="text-2xl md:text-4xl font-light text-gray-900 tracking-tight">
                     {{ filterTitle || 'Our Product Collection' }}
                 </h1>
             </div>
 
-            <div v-if="isListEmpty" class="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-100 mx-4">
+            <div v-if="isListEmpty" class="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-100">
                 <h3 class="text-lg font-medium text-gray-900">No products found.</h3>
                 <Link href="/" class="px-6 py-2 bg-rose-600 text-white rounded-full mt-4 inline-block font-medium">
                     Back to Home
@@ -156,7 +147,7 @@ const isListEmpty = computed(() => (allProducts.value?.length || 0) === 0);
             </div>
 
             <div v-else>
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
                     <ProductCard 
                         v-for="product in allProducts" 
                         :key="product.id" 
@@ -164,7 +155,7 @@ const isListEmpty = computed(() => (allProducts.value?.length || 0) === 0);
                     />
                 </div>
 
-                <div class="mt-12 text-center min-h-[50px]">
+                <div class="mt-8 md:mt-12 text-center min-h-[50px]">
                     <div v-if="hasMorePages" ref="observerTarget" class="flex justify-center py-4">
                          <div v-if="isLoading" class="flex items-center space-x-2 text-rose-600">
                             <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>

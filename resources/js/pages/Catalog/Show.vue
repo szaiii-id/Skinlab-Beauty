@@ -7,7 +7,7 @@ import { useWishlist } from '@/composables/useWishlist';
 import AppNavbarLayout from '@/layouts/app/AppNavbarLayout.vue';
 import ProductReviews from '@/components/ProductReviews.vue'; 
 // Icons Lengkap
-import { Heart, ShoppingCart, Zap, Star, ChevronDown, ChevronUp, Share2, ShieldCheck, Truck, CheckCircle, PackageCheck, AlertCircle, Copy, Minus, Plus } from 'lucide-vue-next'; 
+import { Heart, ShoppingCart, Zap, Star, ChevronDown, ChevronUp, Share2, ShieldCheck, Truck, PackageCheck, AlertCircle, Copy, Minus, Plus } from 'lucide-vue-next'; 
 
 // Swiper
 import { Swiper, SwiperSlide } from 'swiper/vue';
@@ -86,30 +86,23 @@ const averageRating = computed(() => {
     return (total / props.product.reviews.length).toFixed(1);
 });
 
-// --- LOGIC HARGA & DISKON (DIPERBAIKI) ---
-
-// 1. Ambil Harga Asli (Pastikan Number)
+// --- LOGIC HARGA & DISKON ---
 const displayPrice = computed(() => {
     if (!currentVariant.value) return 0;
     return Number(currentVariant.value.price);
 });
 
-// 2. Ambil Harga Akhir (Handle Null dengan '??')
 const displayFinalPrice = computed(() => {
     if (!currentVariant.value) return 0;
-    // Jika final_price NULL, otomatis pakai price
     return Number(currentVariant.value.final_price ?? currentVariant.value.price);
 });
 
-// 3. Cek Diskon (Lebih Ketat)
 const hasDiscount = computed(() => {
     const original = displayPrice.value;
     const final = displayFinalPrice.value;
-    // Diskon valid HANYA jika final < original dan original > 0
     return final < original && original > 0;
 });
 
-// 4. Hitung Persentase
 const discountPercentage = computed(() => {
     if (!hasDiscount.value) return 0;
     const price = displayPrice.value;
@@ -117,20 +110,17 @@ const discountPercentage = computed(() => {
     return Math.round(((price - final) / price) * 100);
 });
 
-// 5. Label Diskon
 const discountLabel = computed(() => {
     if (!hasDiscount.value) return '';
     return currentVariant.value.discount_info?.type === 'percent' ? `${discountPercentage.value}% OFF` : 'SAVE'; 
 });
 
-// Deskripsi
 const shortDescription = computed(() => {
     const desc = props.product.description || '';
     return desc.length <= 180 ? desc : desc.substring(0, 180) + '...';
 });
 const showReadMoreBtn = computed(() => (props.product.description || '').length > 180);
 
-// Styling
 const addToCartButtonClasses = computed(() => showCartPopup.value ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-white border-rose-200 text-gray-600 hover:border-rose-400 hover:text-rose-600');
 const wishlistButtonClasses = computed(() => isWished.value ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-inner' : 'bg-white border-gray-200 hover:border-rose-300 text-gray-400 hover:text-rose-500');
 
@@ -218,14 +208,14 @@ const handleWishlistClick = () => {
         </div>
     </Transition>
 
-    <div class="min-h-screen py-8 md:py-16 bg-gradient-to-br from-rose-50 via-slate-50 to-rose-100 relative overflow-hidden">
+    <div class="min-h-screen py-8 md:py-16 pb-32 md:pb-16 bg-gradient-to-br from-rose-50 via-slate-50 to-rose-100 relative overflow-hidden">
         <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9IiM5OTkwOTkiIGZpbGwtb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==')] opacity-50 pointer-events-none"></div>
         
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12 relative z-10">
             
             <div class="bg-white/80 backdrop-blur-sm rounded-[2.5rem] shadow-2xl shadow-rose-100/60 border border-white/60 overflow-hidden relative">
                 
-                <div class="p-6 md:p-12 md:flex gap-16">
+                <div class="p-4 md:p-12 md:flex gap-16">
                     
                     <div class="md:w-5/12 flex flex-col relative md:sticky md:top-6 h-fit">
                         <button @click="goBack" class="self-start inline-flex items-center gap-2 text-gray-400 hover:text-gray-800 transition-colors duration-300 mb-6 text-xs font-bold uppercase tracking-widest group">
@@ -276,7 +266,7 @@ const handleWishlistClick = () => {
 
                         <div v-if="currentVariant" class="mb-6">
                             <div class="flex items-end gap-3">
-                                <p class="text-5xl font-black text-gray-900 tracking-tighter leading-none">
+                                <p class="text-4xl md:text-5xl font-black text-gray-900 tracking-tighter leading-none">
                                     {{ formatCurrency(displayFinalPrice) }}
                                 </p>
                                 <div v-if="hasDiscount" class="flex flex-col mb-1">
@@ -370,7 +360,7 @@ const handleWishlistClick = () => {
                                 </div>
                             </div>
 
-                            <div class="flex items-stretch gap-4">
+                            <div class="hidden md:flex items-stretch gap-4">
                                 <div class="flex items-center gap-2 shrink-0">
                                     <button @click="decrement" :disabled="quantity <= 1 || isOutOfStock" class="w-11 h-11 flex items-center justify-center rounded-xl border-2 border-gray-100 text-gray-600 hover:border-rose-300 hover:text-rose-600 active:scale-95 transition-all bg-white"><Minus class="w-4 h-4" /></button>
                                     <input type="text" v-model="quantity" readonly class="w-10 text-center bg-transparent border-none text-xl font-black text-gray-900 focus:ring-0 p-0" />
@@ -387,6 +377,15 @@ const handleWishlistClick = () => {
                                 </button>
                             </div>
                             
+                            <div class="md:hidden flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-100 mb-4">
+                                <span class="text-xs font-bold text-gray-500 uppercase">Quantity</span>
+                                <div class="flex items-center gap-3">
+                                    <button @click="decrement" :disabled="quantity <= 1 || isOutOfStock" class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-600 shadow-sm active:scale-95"><Minus class="w-4 h-4" /></button>
+                                    <span class="text-base font-black text-gray-900 w-6 text-center">{{ quantity }}</span>
+                                    <button @click="increment" :disabled="!currentVariant || quantity >= currentVariant.stock || isOutOfStock" class="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-600 shadow-sm active:scale-95"><Plus class="w-4 h-4" /></button>
+                                </div>
+                            </div>
+                            
                         </div>
                     </div>
                 </div>
@@ -394,6 +393,21 @@ const handleWishlistClick = () => {
 
             <ProductReviews :reviews="product.reviews" />
         </div>
+    </div>
+
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 pt-3 pb-6 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-[60] md:hidden flex gap-3">
+        
+        <button @click="handleWishlistClick" :disabled="!currentVariant || isAdding || isRemoving" :class="wishlistButtonClasses" class="w-12 h-12 flex items-center justify-center rounded-xl border transition-all active:scale-95 shrink-0">
+            <Heart class="w-6 h-6" :class="isWished ? 'fill-current' : ''" />
+        </button>
+
+        <button @click="handleAddToCartClick" :disabled="isOutOfStock || isAddingToCart || showCartPopup" class="w-14 h-12 flex items-center justify-center bg-white border border-rose-200 text-rose-600 rounded-xl hover:bg-rose-50 transition-all active:scale-95">
+            <ShoppingCart class="w-6 h-6" />
+        </button>
+
+        <button @click="handleBuyNowClick" :disabled="isOutOfStock || isAddingToCart" class="flex-1 h-12 flex items-center justify-center gap-2 bg-rose-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-rose-200 transition-all active:scale-95 disabled:bg-gray-300">
+            {{ isOutOfStock ? 'Sold Out' : 'Buy Now' }}
+        </button>
     </div>
 </template>
 
@@ -422,5 +436,8 @@ const handleWishlistClick = () => {
 .swiper-pagination-bullet-active { 
     background-color: #e11d48 !important; 
     transform: scale(1.2); 
+}
+.pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 20px);
 }
 </style>
