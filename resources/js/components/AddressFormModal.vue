@@ -135,15 +135,15 @@ const handleSubmit = async () => {
 <template>
     <div
         v-if="show"
-        class="fixed inset-0 flex items-center justify-center p-4 z-[9999]"
+        class="fixed inset-0 flex items-end md:items-center justify-center p-0 md:p-4 z-[9999]"
         @click.self="close"
     >
         <div class="absolute inset-0 bg-white/80 backdrop-blur-sm transition-opacity"></div>
         
         <div 
-            class="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-200"
+            class="relative bg-white w-full h-full md:h-auto md:max-w-4xl md:max-h-[95vh] flex flex-col border border-gray-100 overflow-hidden shadow-2xl rounded-none md:rounded-2xl animate-in slide-in-from-bottom md:zoom-in-95 duration-200"
         >
-            <div class="bg-gradient-to-r from-rose-50 to-pink-50 px-6 py-4 border-b border-rose-100 flex-shrink-0">
+            <div class="bg-gradient-to-r from-rose-50 to-pink-50 px-6 py-4 border-b border-rose-100 flex-shrink-0 pt-safe-top">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-3">
                         <div class="w-8 h-8 bg-rose-100 rounded-lg flex items-center justify-center">
@@ -167,7 +167,7 @@ const handleSubmit = async () => {
                 </div>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            <div class="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
                 <form @submit.prevent="handleSubmit" class="space-y-6">
                     
                     <div class="space-y-4">
@@ -251,8 +251,8 @@ const handleSubmit = async () => {
                         <div class="border border-gray-300 rounded-xl overflow-hidden shadow-sm">
                             <MapPicker
                                 @location-selected="handleMapLocation"
-                                :initial-lat="form.latitude"
-                                :initial-lng="form.longitude"
+                                :initial-lat="Number(form.latitude) || -6.200000"
+                                :initial-lng="Number(form.longitude) || 106.816666"
                             />
                         </div>
 
@@ -294,11 +294,12 @@ const handleSubmit = async () => {
                     <div v-if="errorMessage.value" class="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
                         {{ errorMessage.value }}
                     </div>
-
+                    
+                    <div class="h-4 md:hidden"></div>
                 </form>
             </div>
 
-            <div class="p-6 border-t border-gray-100 bg-white flex space-x-3 rounded-b-2xl">
+            <div class="p-4 md:p-6 border-t border-gray-100 bg-white flex space-x-3 rounded-none md:rounded-b-2xl pb-safe-bottom">
                 <button
                     type="button"
                     @click="close"
@@ -323,4 +324,8 @@ const handleSubmit = async () => {
 <style scoped>
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+
+/* Safe Area Utilities */
+.pt-safe-top { padding-top: env(safe-area-inset-top, 20px); }
+.pb-safe-bottom { padding-bottom: env(safe-area-inset-bottom, 20px); }
 </style>

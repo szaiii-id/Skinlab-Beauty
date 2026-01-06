@@ -1,7 +1,5 @@
-<!-- [file name]: components/MapPicker.vue -->
 <template>
     <div class="map-picker">
-        <!-- Search Box -->
         <div class="mb-4 relative">
             <div class="flex space-x-2">
                 <div class="flex-1 relative">
@@ -35,15 +33,14 @@
                 </button>
             </div>
             
-            <!-- Search Results Dropdown -->
             <div 
                 v-if="showSearchResults && searchResults.length > 0" 
                 class="absolute z-50 w-full mt-2 bg-white border border-gray-300 rounded-xl shadow-xl max-h-60 overflow-y-auto"
                 style="top: 100%;"
             >
                 <div
-                    v-for="result in searchResults"
-                    :key="result.place_id"
+                    v-for="(result, index) in searchResults"
+                    :key="index"
                     @click="selectSearchResult(result)"
                     class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors group"
                 >
@@ -56,13 +53,10 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-gray-900 group-hover:text-blue-700 truncate">
-                                {{ getLocationName(result) }}
+                                {{ result.display_name }}
                             </p>
-                            <p class="text-xs text-gray-600 group-hover:text-blue-600 mt-1 leading-relaxed">
-                                {{ getLocationDetails(result) }}
-                            </p>
-                            <p v-if="getPostalCode(result)" class="text-xs text-green-600 mt-1 font-mono">
-                                📮 {{ getPostalCode(result) }}
+                            <p v-if="result.postcode" class="text-xs text-green-600 mt-1 font-mono">
+                                📮 {{ result.postcode }}
                             </p>
                         </div>
                     </div>
@@ -70,12 +64,10 @@
             </div>
         </div>
 
-        <!-- Map Container -->
-        <div class="map-container mb-4">
-            <div id="map" ref="mapElement" class="w-full h-80 rounded-lg border border-gray-300"></div>
+        <div class="map-container mb-4 relative z-0">
+            <div id="map" ref="mapElement" class="w-full h-80 rounded-lg border border-gray-300 z-0"></div>
         </div>
         
-        <!-- Selected Location Info -->
         <div v-if="selectedLocation" class="p-4 bg-green-50 rounded-lg border border-green-200">
             <div class="flex items-start space-x-3">
                 <div class="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -103,7 +95,6 @@
             </div>
         </div>
 
-        <!-- No Selection Info -->
         <div v-else class="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div class="flex items-start space-x-3">
                 <div class="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -121,7 +112,6 @@
             </div>
         </div>
 
-        <!-- Loading State -->
         <div v-if="mapLoading" class="flex items-center justify-center py-8 bg-gray-50 rounded-lg border border-gray-200">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             <p class="text-gray-700 ml-3 font-medium">Memuat peta...</p>
@@ -133,12 +123,13 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 
 const props = defineProps({
+    // [FIX] Mengizinkan String agar tidak error "Invalid Prop" jika parent mengirim string kosong
     initialLat: {
-        type: Number,
+        type: [Number, String],
         default: -6.2088
     },
     initialLng: {
-        type: Number,
+        type: [Number, String],
         default: 106.8456
     }
 })
@@ -170,16 +161,16 @@ const handleClickOutside = (event) => {
 }
 
 onMounted(async () => {
-    // Add click outside listener
     document.addEventListener('click', handleClickOutside)
-    
-    // Tunggu sampai DOM selesai render
     await nextTick()
     await initializeMap()
     
-    // Jika ada initial coordinates, set marker
-    if (props.initialLat && props.initialLng) {
-        setSelectedLocation(props.initialLat, props.initialLng)
+    // [FIX] Parse ke float untuk memastikan tipe data benar
+    const initLat = parseFloat(props.initialLat)
+    const initLng = parseFloat(props.initialLng)
+
+    if (!isNaN(initLat) && !isNaN(initLng) && initLat !== 0) {
+        setSelectedLocation(initLat, initLng)
     }
 })
 
@@ -198,16 +189,13 @@ const destroyMap = () => {
 
 const initializeMap = () => {
     return new Promise((resolve) => {
-        // Pastikan map element ada
         if (!mapElement.value) {
             mapLoading.value = false
             resolve()
             return
         }
 
-        // Dynamically import Leaflet
         import('leaflet').then(L => {
-            // Fix for default markers in Leaflet
             delete L.Icon.Default.prototype._getIconUrl
             L.Icon.Default.mergeOptions({
                 iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -215,30 +203,24 @@ const initializeMap = () => {
                 shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
             })
 
-            // Initialize map
-            map.value = L.map(mapElement.value).setView([props.initialLat, props.initialLng], 13)
+            const lat = parseFloat(props.initialLat) || -6.2088
+            const lng = parseFloat(props.initialLng) || 106.8456
+            
+            map.value = L.map(mapElement.value).setView([lat, lng], 13)
 
-            // Add OpenStreetMap tiles
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',
                 maxZoom: 19
             }).addTo(map.value)
 
-            // Add click event to map
             map.value.on('click', (e) => {
                 setSelectedLocation(e.latlng.lat, e.latlng.lng)
             })
 
-            // Handle map load event
             map.value.whenReady(() => {
                 mapLoading.value = false
                 resolve()
             })
-
-            // Add initial marker jika ada koordinat
-            if (props.initialLat && props.initialLng) {
-                setSelectedLocation(props.initialLat, props.initialLng)
-            }
 
         }).catch(error => {
             console.error('Error loading Leaflet:', error)
@@ -252,18 +234,11 @@ const setSelectedLocation = (lat, lng) => {
     if (!map.value) return
     
     import('leaflet').then(L => {
-        // Remove existing marker
         if (marker.value) {
             map.value.removeLayer(marker.value)
         }
-
-        // Add new marker
         marker.value = L.marker([lat, lng]).addTo(map.value)
-        
-        // Center map on marker
         map.value.setView([lat, lng], 16)
-        
-        // Reverse geocode untuk dapat alamat lengkap + postal code
         reverseGeocode(lat, lng)
     })
 }
@@ -280,20 +255,29 @@ const onSearchInput = () => {
     }, 500)
 }
 
+// [FIX 403 ERROR] GANTI NOMINATIM -> PHOTON KOMOOT
 const searchLocation = async () => {
     searching.value = true
     searchResults.value = []
     showSearchResults.value = true
 
     try {
+        // Photon API: Gratis dan tidak kena blokir CORS (403) seperti Nominatim
         const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery.value)}&limit=6&countrycodes=id&addressdetails=1`
+            `https://photon.komoot.io/api/?q=${encodeURIComponent(searchQuery.value)}&limit=5`
         )
         
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
         
         const data = await response.json()
-        searchResults.value = data
+        
+        // Mapping format Photon
+        searchResults.value = data.features.map(f => ({
+            display_name: [f.properties.name, f.properties.city, f.properties.country].filter(Boolean).join(', '),
+            lat: f.geometry.coordinates[1],
+            lon: f.geometry.coordinates[0],
+            postcode: f.properties.postcode
+        }))
         
     } catch (error) {
         console.error('Search error:', error)
@@ -303,32 +287,15 @@ const searchLocation = async () => {
     }
 }
 
-// Helper functions untuk format tampilan hasil pencarian
-const getLocationName = (result) => {
-    if (result.name && result.name !== result.display_name.split(',')[0]) {
-        return result.name
-    }
-    return result.display_name.split(',')[0].trim()
-}
-
-const getLocationDetails = (result) => {
-    const parts = result.display_name.split(',')
-    return parts.slice(1, 3).map(part => part.trim()).join(', ')
-}
-
-// Extract postal code dari result OSM
-const getPostalCode = (result) => {
-    // Cari postal code dari address object
-    if (result.address && result.address.postcode) {
-        return result.address.postcode
-    }
-    return null
-}
+// [FIX HELPERS] Disesuaikan untuk data dari Photon
+const getLocationName = (result) => result.display_name.split(',')[0]
+const getLocationDetails = (result) => result.display_name
+const getPostalCode = (result) => result.postcode || null
 
 const selectSearchResult = (result) => {
     const lat = parseFloat(result.lat)
     const lng = parseFloat(result.lon)
-    const postalCode = getPostalCode(result)
+    const postalCode = result.postcode
     
     setMarkerAndEmit(lat, lng, result.display_name, postalCode)
     
@@ -341,18 +308,12 @@ const setMarkerAndEmit = (lat, lng, address, postalCode = null) => {
     if (!map.value) return
     
     import('leaflet').then(L => {
-        // Remove existing marker
         if (marker.value) {
             map.value.removeLayer(marker.value)
         }
-
-        // Add new marker
         marker.value = L.marker([lat, lng]).addTo(map.value)
-        
-        // Center map on marker
         map.value.setView([lat, lng], 16)
         
-        // Set selected location
         selectedLocation.value = {
             lat: lat,
             lng: lng,
@@ -360,25 +321,31 @@ const setMarkerAndEmit = (lat, lng, address, postalCode = null) => {
             postal_code: postalCode
         }
         
-        // Emit ke parent
         emit('location-selected', selectedLocation.value)
     })
 }
 
+// [FIX 403 ERROR] GANTI NOMINATIM -> BIGDATACLOUD
 const reverseGeocode = async (lat, lng) => {
+    
     try {
+        // BigDataCloud API: Client-side geocoding gratis yang tidak kena CORS
         const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=id`
         )
         const data = await response.json()
         
-        // Extract postal code dari reverse geocode result
-        const postalCode = data.address?.postcode || null
+        // Format alamat
+        const addressName = [data.locality, data.city, data.principalSubdivision, data.countryName]
+            .filter(Boolean)
+            .join(', ')
+
+        const postalCode = data.postcode || null
         
         selectedLocation.value = {
             lat: lat,
             lng: lng,
-            address: data.display_name,
+            address: addressName,
             postal_code: postalCode
         }
         
@@ -390,45 +357,24 @@ const reverseGeocode = async (lat, lng) => {
 
 const useCurrentLocation = () => {
     gettingLocation.value = true
-    
     if (!navigator.geolocation) {
-        alert('Geolocation tidak didukung oleh browser Anda')
+        alert('Geolocation tidak didukung')
         gettingLocation.value = false
         return
     }
-
     navigator.geolocation.getCurrentPosition(
         (position) => {
             const lat = position.coords.latitude
             const lng = position.coords.longitude
-            
             setSelectedLocation(lat, lng)
             gettingLocation.value = false
         },
         (error) => {
             console.error('Geolocation error:', error)
-            let errorMessage = 'Tidak dapat mengakses lokasi Anda.'
-            
-            switch (error.code) {
-                case error.PERMISSION_DENIED:
-                    errorMessage = 'Izin lokasi ditolak. Silakan izinkan akses lokasi di browser Anda.'
-                    break
-                case error.POSITION_UNAVAILABLE:
-                    errorMessage = 'Informasi lokasi tidak tersedia.'
-                    break
-                case error.TIMEOUT:
-                    errorMessage = 'Permintaan lokasi timeout.'
-                    break
-            }
-            
-            alert(errorMessage)
+            alert('Tidak dapat mengakses lokasi')
             gettingLocation.value = false
         },
-        {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 60000
-        }
+        { enableHighAccuracy: true }
     )
 }
 </script>
@@ -438,56 +384,17 @@ const useCurrentLocation = () => {
     font-family: 'Inter', sans-serif;
     position: relative;
 }
-
 .map-container {
     position: relative;
+    z-index: 0;
 }
-
 #map {
     min-height: 320px;
     background: #f8fafc;
 }
-
-/* Custom scrollbar for search results */
-.overflow-y-auto::-webkit-scrollbar {
-    width: 6px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-/* Leaflet map container styling */
 :deep(.leaflet-container) {
     background: #f8fafc;
     font-family: 'Inter', sans-serif;
     font-size: 14px;
-}
-
-:deep(.leaflet-control-zoom) {
-    border: none !important;
-    border-radius: 8px !important;
-    overflow: hidden;
-}
-
-:deep(.leaflet-control-zoom a) {
-    background: white !important;
-    border: 1px solid #e5e7eb !important;
-    color: #374151 !important;
-    font-weight: bold;
-}
-
-:deep(.leaflet-control-zoom a:hover) {
-    background: #f3f4f6 !important;
 }
 </style>
