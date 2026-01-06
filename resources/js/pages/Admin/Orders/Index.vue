@@ -350,14 +350,13 @@ const submitSchedulePickup = () => {
     });
 };
 
-const bulkPrintLabels = () => {
+const bulkPrintLabels = async () => {
+    // 1. Validation
     if (!canPrintLabels.value) {
         Swal.fire({
             icon: 'warning',
-            title: 'Tidak bisa Print Label',
-            html: `Order harus:<br>
-                   • Status <strong>"Pickup Scheduled"</strong><br>
-                   • Sudah memiliki order number Komerce`,
+            title: 'Cannot Print Labels',
+            html: `Orders must:<br>• Be in <strong>"Pickup Scheduled"</strong> status<br>• Have a Komerce order number`,
             confirmButtonText: 'OK',
             confirmButtonColor: '#ec4899',
             background: '#fdf2f8'
@@ -367,41 +366,54 @@ const bulkPrintLabels = () => {
 
     const orderIds = ordersForPrintLabels.value.map(o => o.id);
     
-    Swal.fire({
-        title: `Print Label untuk ${orderIds.length} Order?`,
-        html: `Sistem akan generate PDF shipping label.<br>
-               Masing-masing label akan terbuka di tab baru.`,
+    // 2. Confirmation
+    const result = await Swal.fire({
+        title: `Print Labels for ${orderIds.length} Orders?`,
+        html: `Your browser might block multiple popups.<br>Please <strong>allow popups</strong> for this site if tabs do not open.`,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Ya, Print Label',
+        confirmButtonText: 'Yes, Print Labels',
         confirmButtonColor: '#7c3aed',
         cancelButtonColor: '#6b7280',
         background: '#fdf2f8'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            isPrintingLabels.value = true;
-            
-            // Buka label masing-masing order di tab baru
-            orderIds.forEach(orderId => {
-                const labelUrl = route('admin.orders.label', orderId);
-                window.open(labelUrl, '_blank');
-            });
-            
-            setTimeout(() => {
-                isPrintingLabels.value = false;
-                selectedOrders.value.clear();
-                isSelectAllPage.value = false;
-                
-                Swal.fire({
-                    title: 'Label Dibuka!',
-                    text: `${orderIds.length} label dibuka di tab baru.`,
-                    icon: 'success',
-                    confirmButtonColor: '#ec4899',
-                    background: '#fdf2f8'
-                });
-            }, 1000);
-        }
     });
+
+    if (result.isConfirmed) {
+        isPrintingLabels.value = true;
+
+        // 3. Execution Loop (With Delay)
+        for (let i = 0; i < orderIds.length; i++) {
+            const orderId = orderIds[i];
+            
+            // Ensure 'admin.orders.label' matches the name in your web.php
+            const url = route('admin.orders.label', orderId); 
+            
+            // Open PDF in new tab
+            window.open(url, '_blank');
+            
+            // Wait 800ms before opening the next tab to prevent browser blocking
+            if (i < orderIds.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 800));
+            }
+        }
+
+        // 4. Cleanup
+        setTimeout(() => {
+            isPrintingLabels.value = false;
+            selectedOrders.value.clear();
+            isSelectAllPage.value = false;
+
+            Swal.fire({
+                title: 'Done!',
+                text: 'Label tabs have been opened successfully.',
+                icon: 'success',
+                confirmButtonColor: '#ec4899',
+                background: '#fdf2f8',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }, 1000);
+    }
 };
 
 const bulkMarkShipped = () => {
@@ -718,14 +730,14 @@ const submitCancel = () => {
         </div>
 
         <!-- TABS -->
-        <div class="flex overflow-x-auto pb-1 mb-6 gap-2 no-scrollbar">
+        <div class="flex flex-wrap gap-3 mb-6"> 
             <button v-for="tab in tabs" :key="tab.id" @click="statusFilter = tab.id"
-                class="px-4 py-2.5 rounded-lg font-medium text-sm flex items-center gap-2 transition-all whitespace-nowrap border-2 relative"
+                class="px-4 py-2.5 rounded-lg font-medium text-sm flex items-center gap-2 transition-all border-2 relative"
                 :class="statusFilter === tab.id 
                     ? (tab.id === 'schedule_pickup' 
                         ? 'bg-gradient-to-r from-pink-100 to-rose-100 text-pink-700 border-pink-300 shadow-sm' 
                         : 'bg-gradient-to-r from-rose-50 to-pink-50 text-rose-700 border-rose-300 shadow-sm')
-                    : 'bg-white text-gray-600 border-transparent hover:bg-gray-50'">
+                    : 'bg-white text-gray-600 border-transparent hover:bg-gray-50 border-gray-100 hover:border-pink-100'">
                 
                 <component :is="tab.icon" class="w-4 h-4" /> 
                 {{ tab.label }}
