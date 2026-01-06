@@ -1,28 +1,22 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { ArrowUp } from 'lucide-vue-next'; // Ikon panah
+import { ArrowUp } from 'lucide-vue-next';
 
 const isVisible = ref(false);
 
 const checkScroll = () => {
-    // Tombol akan muncul jika posisi scroll lebih dari 300px
     isVisible.value = window.scrollY > 300;
 };
 
 const scrollToTop = () => {
-    window.scrollTo({
-        top: 0,
-        behavior: 'smooth' // Membuat transisi scroll lebih halus
-    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 onMounted(() => {
-    // Daftarkan event listener saat komponen dimuat
     window.addEventListener('scroll', checkScroll);
 });
 
 onUnmounted(() => {
-    // Hapus event listener saat komponen dihancurkan
     window.removeEventListener('scroll', checkScroll);
 });
 </script>
@@ -33,20 +27,35 @@ onUnmounted(() => {
             v-if="isVisible"
             @click="scrollToTop"
             aria-label="Scroll to top"
-            class="fixed bottom-6 right-6 p-3 bg-rose-600 text-white rounded-full shadow-xl 
-                   transition-all duration-300 hover:bg-rose-700 focus:outline-none focus:ring-4 focus:ring-rose-300"
+            class="fixed z-40 
+                   /* --- POSISI --- */
+                   bottom-20 right-4         /* Mobile: Lebih tinggi (biar gak ketutup Bottom Nav) */
+                   md:bottom-8 md:right-8    /* Desktop: Posisi standar di pojok bawah */
+
+                   /* --- UKURAN --- */
+                   p-2.5                     /* Mobile: Padding agak kecil */
+                   md:p-3                    /* Desktop: Padding normal */
+
+                   /* --- STYLE --- */
+                   bg-rose-600/90 backdrop-blur-sm text-white rounded-full shadow-lg shadow-rose-200/50
+                   border border-white/20
+                   
+                   /* --- INTERAKSI --- */
+                   transition-all duration-300 
+                   hover:bg-rose-700 hover:-translate-y-1 hover:shadow-xl
+                   focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2"
         >
-            <ArrowUp class="h-6 w-6" />
+            <ArrowUp class="w-5 h-5 md:w-6 md:h-6" stroke-width="2.5" />
         </button>
     </Transition>
 </template>
 
 <style scoped>
-/* Styling Transisi untuk Tombol Agar Muncul/Hilang dengan Elegan */
 .fade-enter-active, .fade-leave-active {
-  transition: opacity 0.5s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
+  transform: translateY(20px); /* Efek muncul dari bawah */
 }
 </style>

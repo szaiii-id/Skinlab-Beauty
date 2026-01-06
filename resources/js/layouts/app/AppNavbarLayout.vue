@@ -6,7 +6,7 @@ import ScrollToTop from '@/components/ScrollToTop.vue';
 </script>
 
 <template>
-    <div class="min-h-screen bg-rose-50">
+    <div class="min-h-screen bg-rose-50 pb-20 md:pb-0">
         
         <AppNavbar />
 
