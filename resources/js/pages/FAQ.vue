@@ -1,8 +1,7 @@
 <script setup>
-import { Head } from '@inertiajs/vue3';
-// Gunakan layout navbar Anda
+import { Head, Link } from '@inertiajs/vue3';
 import AppNavbarLayout from '@/layouts/app/AppNavbarLayout.vue';
-// Import komponen Accordion bawaan starter kit Anda
+import { HelpCircle, MessageCircle } from 'lucide-vue-next';
 import {
   Accordion,
   AccordionContent,
@@ -14,7 +13,7 @@ defineOptions({
     layout: AppNavbarLayout
 });
 
-// Daftar Q&A (Nanti bisa Anda pindahkan ke database jika mau)
+// Daftar Q&A
 const faqs = [
   {
     value: 'item-1',
@@ -47,32 +46,57 @@ const faqs = [
 <template>
     <Head title="FAQ" />
 
-    <div class="bg-white py-16 md:py-24">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="bg-rose-50/30 min-h-screen py-10 md:py-20 font-sans">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
 
-            <section class="text-center mb-16">
-                <h1 class="text-5xl font-extrabold text-gray-900 tracking-tighter">
+            <section class="text-center mb-10 md:mb-16">
+                <div class="inline-flex items-center justify-center p-3 bg-rose-100 rounded-full mb-4 text-rose-600">
+                    <HelpCircle class="w-6 h-6" />
+                </div>
+                <h1 class="text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight mb-3">
                     Frequently Asked Questions
                 </h1>
-                <p class="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
-                    Have questions? We're here to help. Find answers to common queries below.
+                <p class="text-base md:text-lg text-gray-600 max-w-xl mx-auto leading-relaxed">
+                    Everything you need to know about our products and billing. Can’t find the answer? Chat to our friendly team.
                 </p>
             </section>
 
-            <section>
-                <Accordion type="single" collapsible class="w-full">
+            <section class="bg-white rounded-2xl md:rounded-3xl shadow-xl shadow-rose-100/50 border border-rose-100 overflow-hidden">
+                <Accordion type="single" collapsible class="w-full divide-y divide-rose-50">
                     
-                    <AccordionItem v-for="faq in faqs" :key="faq.value" :value="faq.value">
-                        <AccordionTrigger class="text-lg font-medium text-left text-gray-800 hover:text-rose-600">
+                    <AccordionItem v-for="faq in faqs" :key="faq.value" :value="faq.value" class="border-b-0">
+                        <AccordionTrigger class="px-5 md:px-8 py-4 md:py-5 text-base md:text-lg font-bold text-left text-gray-800 hover:text-rose-600 hover:bg-rose-50/30 transition-colors [&[data-state=open]]:text-rose-600">
                             {{ faq.question }}
                         </AccordionTrigger>
-                        <AccordionContent class="prose max-w-none text-gray-600">
-                            <p>{{ faq.answer }}</p>
+                        
+                        <AccordionContent class="px-5 md:px-8 pb-5 pt-0 prose max-w-none text-sm md:text-base text-gray-600 leading-relaxed">
+                            {{ faq.answer }}
                         </AccordionContent>
                     </AccordionItem>
 
                 </Accordion>
             </section>
+
+            <section class="mt-10 md:mt-16 text-center">
+                <div class="bg-white p-6 rounded-2xl border border-dashed border-rose-200 inline-block shadow-sm">
+                    <div class="flex flex-col md:flex-row items-center gap-4">
+                        <div class="bg-rose-50 p-3 rounded-full text-rose-600">
+                            <MessageCircle class="w-5 h-5" />
+                        </div>
+                        <div class="text-left">
+                            <h4 class="text-sm font-bold text-gray-900">Still have questions?</h4>
+                            <p class="text-xs text-gray-500">Can’t find the answer you’re looking for? Please chat to our friendly team.</p>
+                        </div>
+                        <Link 
+                            href="/contact" 
+                            class="w-full md:w-auto px-5 py-2.5 bg-rose-600 text-white text-sm font-semibold rounded-xl hover:bg-rose-700 transition-colors shadow-lg shadow-rose-200"
+                        >
+                            Contact Us
+                        </Link>
+                    </div>
+                </div>
+            </section>
+
         </div>
     </div>
 </template>
