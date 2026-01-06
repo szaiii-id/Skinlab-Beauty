@@ -228,8 +228,9 @@ const areaPath = computed(() => {
                                 </div>
                             </div>
                             
-                            <div class="flex-1 relative w-full h-64">
-                                <svg viewBox="0 0 500 150" preserveAspectRatio="none" class="w-full h-full overflow-visible">
+                            <div class="flex-1 relative w-full h-64 flex items-end"> 
+                                <svg viewBox="0 0 500 150" class="w-full h-full overflow-visible" style="min-height: 200px;">
+                                    
                                     <defs>
                                         <linearGradient id="gradientTrend" x1="0%" y1="0%" x2="0%" y2="100%">
                                             <stop offset="0%" :style="{ stopColor: trendColor, stopOpacity: 0.2 }" />
@@ -245,15 +246,19 @@ const areaPath = computed(() => {
                                     <path :d="chartPath" fill="none" :stroke="trendColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="drop-shadow-sm transition-all duration-500" />
 
                                     <g v-for="(point, i) in chartPoints" :key="i" class="group cursor-pointer">
-                                        <circle :cx="point.x" :cy="point.y" r="8" fill="transparent" />
-                                        <circle :cx="point.x" :cy="point.y" r="5" :fill="trendColor" stroke="white" stroke-width="2" class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-sm" />
-                                        <foreignObject :x="point.x - 60" :y="point.y - 55" width="120" height="50" class="opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none -translate-y-2 group-hover:translate-y-0">
+                                        <rect :x="point.x - 10" :y="0" width="20" height="150" fill="transparent" />
+                                        
+                                        <circle :cx="point.x" :cy="point.y" r="4" :fill="trendColor" stroke="white" stroke-width="2" />
+                                        <circle :cx="point.x" :cy="point.y" r="6" :fill="trendColor" stroke="white" stroke-width="2" class="opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        
+                                        <foreignObject :x="point.x - 50" :y="point.y - 60" width="100" height="50" class="opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
                                             <div class="flex flex-col items-center justify-center">
-                                                <div class="bg-slate-800 text-white text-[10px] py-1.5 px-3 rounded-lg shadow-xl whitespace-nowrap z-50 flex flex-col items-center">
-                                                    <span class="font-bold mb-0.5">{{ point.date }}</span>
-                                                    <span class="font-mono font-bold" :style="{ color: isTrendingUp ? '#6ee7b7' : '#fda4af' }">{{ formatIDR(point.total) }}</span>
+                                                <div class="bg-slate-800 text-white text-[10px] py-1 px-2 rounded shadow-lg whitespace-nowrap z-50">
+                                                    <span class="font-bold block text-center">{{ point.date }}</span>
+                                                    <span class="font-mono text-center block" :style="{ color: isTrendingUp ? '#6ee7b7' : '#fda4af' }">
+                                                        {{ formatIDR(point.total) }}
+                                                    </span>
                                                 </div>
-                                                <div class="w-2 h-2 bg-slate-800 rotate-45 -mt-1"></div>
                                             </div>
                                         </foreignObject>
                                     </g>

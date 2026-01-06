@@ -155,7 +155,10 @@ const isActive = (routeName: string) => {
                         <svg class="w-5 h-5 mr-3 transition-colors" :class="isActive('admin.orders') ? 'text-white' : 'text-gray-400 group-hover:text-pink-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
                         </svg>
-                        Orders
+                        <span class="flex-1">Orders</span>
+                        <span v-if="page.props.counts?.open_orders > 0" class="ml-auto bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                            {{ page.props.counts.open_orders }}
+                        </span>
                     </Link>
                     <Link 
                         :href="route('admin.returns.index')" 
@@ -165,7 +168,10 @@ const isActive = (routeName: string) => {
                             : 'text-gray-600 hover:bg-pink-50 hover:text-pink-700'"
                     >
                         <svg class="w-5 h-5 mr-3 transition-colors" :class="isActive('admin.returns') ? 'text-white' : 'text-gray-400 group-hover:text-pink-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                        Returns
+                        <span class="flex-1">Returns</span>
+                        <span v-if="page.props.counts?.pending_returns > 0" class="ml-auto bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                            {{ page.props.counts.pending_returns }}
+                        </span>
                     </Link>
                 </div>
             </div>
@@ -205,7 +211,10 @@ const isActive = (routeName: string) => {
                         <svg class="w-5 h-5 mr-3 transition-colors" :class="isActive('admin.reviews') ? 'text-white' : 'text-gray-400 group-hover:text-pink-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
                         </svg>
-                        Customer Reviews
+                        <span class="flex-1">Customer Reviews</span>
+                        <span v-if="page.props.counts?.pending_reviews > 0" class="ml-auto bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                            {{ page.props.counts.pending_reviews }}
+                        </span>
                     </Link>
 
                     <Link 
@@ -281,7 +290,10 @@ const isActive = (routeName: string) => {
                         <svg class="w-5 h-5 mr-3 transition-colors" :class="isActive('admin.ban-requests') ? 'text-white' : 'text-gray-400 group-hover:text-pink-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01"></path>
                         </svg>
-                        Ban Requests
+                        <span class="flex-1">Ban Requests</span>
+                        <span v-if="page.props.counts?.pending_bans > 0" class="ml-auto bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                            {{ page.props.counts.pending_bans }}
+                        </span>
                     </Link>
 
                     <Link 
