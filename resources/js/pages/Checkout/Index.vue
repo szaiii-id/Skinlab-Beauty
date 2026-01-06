@@ -42,14 +42,11 @@ const form = useForm({
 });
 
 // --- METHODS ---
-
-// [FIX] FUNGSI BACK DIBUAT DI SINI (AGAR TIDAK ERROR 'UNDEFINED')
 const goBack = () => {
-    // Cek apakah ada history, jika ada mundur, jika tidak ke home
     if (window.history.length > 1) {
         window.history.back();
     } else {
-        router.visit('/'); // Fallback jika user membuka tab baru langsung di checkout
+        router.visit('/'); 
     }
 };
 
@@ -141,7 +138,6 @@ const submitOrder = () => {
     });
 };
 
-// Init Midtrans
 onMounted(() => {
     const script = document.createElement('script');
     script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
@@ -155,30 +151,35 @@ onMounted(() => {
 <template>
     <Head title="Checkout - SkinLab Beauty" />
     
-    <div class="min-h-screen bg-rose-50 py-8 text-gray-900">
+    <div class="min-h-screen bg-rose-50 py-4 md:py-8 text-gray-900 pb-32 lg:pb-8">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             
-            <div class="mb-6">
+            <div class="mb-4 md:mb-6">
                 <button 
                     @click="goBack" 
                     class="group inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-rose-600 transition-all duration-200"
                 >
-                    <div class="p-1 rounded-full group-hover:bg-rose-100 transition-colors">
+                    <div class="p-1 rounded-full group-hover:bg-rose-100 transition-colors bg-white shadow-sm border border-gray-100">
                         <ArrowLeft class="w-4 h-4" />
                     </div>
                     <span>Back</span>
                 </button>
             </div>
-            <div class="mb-8">
-                <h1 class="text-3xl font-bold text-gray-900 mb-2">Checkout</h1>
-                <p class="text-gray-600">Complete your purchase securely.</p>
+            
+            <div class="mb-6 md:mb-8">
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-1">Checkout</h1>
+                <p class="text-sm md:text-base text-gray-600">Complete your purchase securely.</p>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="lg:col-span-2 space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                
+                <div class="lg:col-span-2 space-y-4 md:space-y-6">
                     
-                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Shipping Address</h2>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                        <h2 class="text-base md:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xs font-bold">1</span>
+                            Shipping Address
+                        </h2>
                         <AddressManager @address-selected="handleAddressSelected" />
                     </div>
 
@@ -191,17 +192,23 @@ onMounted(() => {
                         @select-service="selectService"
                     />
 
-                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Payment Method</h2>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                        <h2 class="text-base md:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xs font-bold">2</span>
+                            Payment Method
+                        </h2>
                         <PaymentMethodSelector v-model="form.payment_method" />
                     </div>
                     
-                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Order Notes (Optional)</h2>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                        <h2 class="text-base md:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xs font-bold">3</span>
+                            Notes <span class="text-gray-400 font-normal text-xs">(Optional)</span>
+                        </h2>
                         <textarea 
                             v-model="form.notes" 
                             placeholder="Example: Please pack carefully..." 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-rose-500 focus:border-rose-500 text-gray-900 transition-shadow" 
+                            class="w-full px-4 py-3 border border-gray-200 bg-gray-50 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-gray-900 text-sm transition-all resize-none" 
                             rows="2"
                         ></textarea>
                     </div>
