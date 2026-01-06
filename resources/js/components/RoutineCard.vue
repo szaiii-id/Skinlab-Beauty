@@ -41,7 +41,7 @@ const getFrequencyLabel = (freq) => {
                     <img 
                         v-if="group.image_url" 
                         :src="getImageUrl(group.image_url)" 
-                        class="w-full h-full object-cover"
+                        class="w-full h-full object-cover mix-blend-multiply"
                         @error="$event.target.style.display='none'"
                     >
                     <div v-else class="w-full h-full flex items-center justify-center text-gray-300 text-[10px] font-bold">
@@ -134,17 +134,17 @@ const getFrequencyLabel = (freq) => {
                 
                 <button 
                     @click="$emit('delete-all', group.slots[0], group.name)" 
-                    class="group/del flex flex-col items-center justify-center gap-1 text-gray-300 hover:text-red-600 transition-all"
+                    class="group/del flex flex-col items-center justify-center gap-1 text-gray-300 hover:text-red-600 transition-all w-full sm:w-auto"
                     title="Delete Entire Product Routine"
                 >
                     <div class="p-3 bg-gray-50 border border-gray-200 rounded-xl group-hover/del:bg-red-50 group-hover/del:border-red-200 transition-all shadow-sm">
-                        <Trash2 class="w-6 h-6 stroke-[2]" />
+                        <Trash2 class="w-5 h-5 sm:w-6 sm:h-6 stroke-[2]" />
                     </div>
                     
                     <span class="text-[9px] font-bold uppercase tracking-wider opacity-0 group-hover/del:opacity-100 transition-opacity hidden sm:block">
                         Delete All
                     </span>
-                    <span class="text-[10px] font-bold sm:hidden mt-1">Delete All</span>
+                    <span class="text-[10px] font-bold text-red-500 sm:hidden mt-1 uppercase">Delete All</span>
                 </button>
 
             </div>
